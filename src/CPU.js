@@ -11,6 +11,7 @@ class CPU {
         this.stop = 0
         this.instructions = Array(0xf * 0xf * 2).fill(() => console.log('instruction not implemented!'))
         //Make instruction table
+        // not implement ADD HL, ss h flag
         var regCode = { 'a': 0b111, 'b': 0b000, 'c': 0b001, 'd': 0b101, 'e': 0b011, 'h': 0b100, 'l': 0b101 }
         var regddCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10 }
         var regqqCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10, 'af': 0b11 }
@@ -273,7 +274,7 @@ class CPU {
             this.clock.m += 2
         }
         // A ← A + (HL)
-        this.instructions[0b11000110] = () => {
+        this.instructions[0b10000110] = () => {
             let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
             let a = this.reg.a
             this.reg.a += d8
@@ -285,8 +286,407 @@ class CPU {
             this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
             this.clock.m += 2
         }
-        // A ← A+s+CY
-        
+        // A ← A+r+CY
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10001 << 3 + r1b] = () => {
+                let a = this.reg.a
+                this.reg.a += this.reg[r1]
+                this.reg.a += (this.reg.f & 0x10) ? 1 : 0
+                let z = 0, n = 0, h = 0, c = 0
+                if (this.reg.a > 255) c = 1
+                this.reg.a &= 0xff
+                if (this.reg.a == 0) z = 1
+                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A+n+CY
+        this.instructions[0b11001110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            let a = this.reg.a
+            this.reg.a += d8
+            this.reg.a += (this.reg.f & 0x10) ? 1 : 0
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a > 255) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A+(HL)+CY
+        this.instructions[0b10001110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = this.reg.a
+            this.reg.a += d8
+            this.reg.a += (this.reg.f & 0x10) ? 1 : 0
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a > 255) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        //A ← A-r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10010 << 3 + r1b] = () => {
+                let a = this.reg.a
+                this.reg.a -= this.reg[r1]
+                let z = 0, n = 1, h = 0, c = 0
+                if (this.reg.a < 0) c = 1
+                this.reg.a &= 0xff
+                if (this.reg.a == 0) z = 1
+                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A - n
+        this.instructions[0b11010110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            let a = this.reg.a
+            this.reg.a -= d8
+            let z = 0, n = 1, h = 0, c = 0
+            if (this.reg.a < 0) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A - (HL)
+        this.instructions[0b10010110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = this.reg.a
+            this.reg.a -= d8
+            let z = 0, n = 1, h = 0, c = 0
+            if (this.reg.a < 0) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A-r-CY
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10011 << 3 + r1b] = () => {
+                let a = this.reg.a
+                this.reg.a -= this.reg[r1]
+                this.reg.a -= (this.reg.f & 0x10) ? 1 : 0
+                let z = 0, n = 1, h = 0, c = 0
+                if (this.reg.a < 0) c = 1
+                this.reg.a &= 0xff
+                if (this.reg.a == 0) z = 1
+                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A-n-CY
+        this.instructions[0b11011110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            let a = this.reg.a
+            this.reg.a -= d8
+            this.reg.a -= (this.reg.f & 0x10) ? 1 : 0
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a < 0) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A-(HL)-CY
+        this.instructions[0b10011110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = this.reg.a
+            this.reg.a -= d8
+            this.reg.a -= (this.reg.f & 0x10) ? 1 : 0
+            let z = 0, n = 1, h = 0, c = 0
+            if (this.reg.a < 0) c = 1
+            this.reg.a &= 0xff
+            if (this.reg.a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        //A ← A & r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10100 << 3 + r1b] = () => {
+                this.reg.a &= this.reg[r1]
+                let z = 0, n = 0, h = 1, c = 0
+                if (this.reg.a == 0) z = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A & n
+        this.instructions[0b11100110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            this.reg.a &= d8
+            let z = 0, n = 0, h = 1, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A & (HL)
+        this.instructions[0b10100110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            this.reg.a &= d8
+            let z = 0, n = 0, h = 1, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        //A ← A | r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10110 << 3 + r1b] = () => {
+                this.reg.a |= this.reg[r1]
+                let z = 0, n = 0, h = 0, c = 0
+                if (this.reg.a == 0) z = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A | n
+        this.instructions[0b11110110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            this.reg.a |= d8
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A | (HL)
+        this.instructions[0b10110110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            this.reg.a |= d8
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        //A ← A ^ r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10101 << 3 + r1b] = () => {
+                this.reg.a ^= this.reg[r1]
+                let z = 0, n = 0, h = 0, c = 0
+                if (this.reg.a == 0) z = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // A ← A ^ n
+        this.instructions[0b11101110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            this.reg.a ^= d8
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // A ← A ^ (HL)
+        this.instructions[0b10101110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            this.reg.a ^= d8
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.a == 0) z = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        //CP r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[0b10111 << 3 + r1b] = () => {
+                let a = this.reg.a
+                a -= this.reg[r1]
+                let z = 0, n = 1, h = 0, c = 0
+                if (a < 0) c = 1
+                a &= 0xff
+                if (a == 0) z = 1
+                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // CP n
+        this.instructions[0b11111110] = () => {
+            this.reg.pc += 1
+            let d8 = this.MMU.rb(this.reg.pc)
+            let a = this.reg.a
+            a -= d8
+            let z = 0, n = 1, h = 0, c = 0
+            if (a < 0) c = 1
+            a &= 0xff
+            if (a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // CP (HL)
+        this.instructions[0b10111110] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = this.reg.a
+            a -= d8
+            let z = 0, n = 1, h = 0, c = 0
+            if (a < 0) c = 1
+            a &= 0xff
+            if (a == 0) z = 1
+            if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // inc r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[r1b << 3 + 0b100] = () => {
+                let a = this.reg[r1]
+                this.reg[r1] += 1
+                this.reg[r1] &= 0xff
+                let z = 0, n = 0, h = 0, c = (this.reg.f >> 4) & 1
+                if (this.reg[r1] == 0) z = 1
+                if ((this.reg[r1] ^ 1 ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // inc (HL)
+        this.instructions[0b110100] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = d8 + 1
+            a &= 0xff
+            this.MMU.wb(this.reg.h << 8 + this.reg.l, a)
+            let z = 0, n = 0, h = 0, c = (this.reg.f >> 4) & 1
+            if (a == 0) z = 1
+            if ((a ^ d8 ^ 1) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 3
+        }
+        // dec r
+        for (let r1 in regCode) {
+            let r1b = regCode[r1]
+            this.instructions[r1b << 3 + 0b100] = () => {
+                let a = this.reg[r1]
+                this.reg[r1] -= 1
+                this.reg[r1] &= 0xff
+                let z = 0, n = 1, h = 0, c = (this.reg.f >> 4) & 1
+                if (this.reg[r1] == 0) z = 1
+                if ((this.reg[r1] ^ 1 ^ a) & 0x10) h = 1
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 1
+            }
+        }
+        // dec (HL)
+        this.instructions[0b110100] = () => {
+            let d8 = this.MMU.rb(this.reg.h << 8 + this.reg.l)
+            let a = d8 - 1
+            a &= 0xff
+            this.MMU.wb(this.reg.h << 8 + this.reg.l, a)
+            let z = 0, n = 1, h = 0, c = (this.reg.f >> 4) & 1
+            if (a == 0) z = 1
+            if ((a ^ 1 ^ d8) & 0x10) h = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 3
+        }
+        // ____________________________________________________
+        // 
+        // 16-Bit Arithmetic Operation Instructions
+        // ____________________________________________________
+
+        // ADD HL, ss
+        for (let r1 in regddCode) {
+            let r1b = regCode[r1]
+            this.instructions[r1b << 4 + 0b1001] = () => {
+                let hl = this.reg.h << 8 + this.reg.l
+                hl += this.reg[r1.charAt(0)] << 8 + this.reg[r1.charAt(1)]
+                let z = this.reg.f >> 7, n = 0, h = 0, c = 0
+                if (hl > 0xffff) c = 1
+                hl &= 0xffff
+                this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+                this.clock.m += 2
+            }
+        }
+        // ADD HL, SP
+        this.instructions[0b111001] = () => {
+            let hl = this.reg.h << 8 + this.reg.l
+            hl += this.reg.sp
+            let z = this.reg.f >> 7, n = 0, h = 0, c = 0
+            if (hl > 0xffff) c = 1
+            hl &= 0xffff
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 2
+        }
+        // ADD SP, e  SP ← SP + e
+        this.instructions[0b11101000] = () => {
+            this.pc += 1
+            let e = this.MMU.rb(this.reg.pc)
+            if (e > 127) e = -((~e + 1) & 255)
+            this.reg.sp += e
+            let z = 0, n = 0, h = 0, c = 0
+            if (this.reg.sp > 0xffff) c = 1
+            this.reg.sp &= 0xffff
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m += 4
+        }
+        // inc ss
+        for (let r1 in regddCode) {
+            let r1b = regCode[r1]
+            this.instructions[r1b << 4 + 0b0011] = () => {
+                let d16 = this.reg[r1.charAt(0)] << 8 + this.reg[r1.charAt(1)]
+                d16 += 1
+                d16 &= 0xffff
+                this.reg[r1.charAt(0)] = d16 >> 8
+                this.reg[r1.charAt(1)] = d16 & 0xff
+                this.clock.m += 2
+            }
+        }
+        //inc SP
+        this.instructions[0b110011] = () => {
+            let d16 = this.reg.sp
+            d16 += 1
+            d16 &= 0xffff
+            this.reg.sp = d16
+            this.clock.m += 2
+        }
+        // dec ss
+        for (let r1 in regddCode) {
+            let r1b = regCode[r1]
+            this.instructions[r1b << 4 + 0b1011] = () => {
+                let d16 = this.reg[r1.charAt(0)] << 8 + this.reg[r1.charAt(1)]
+                d16 -= 1
+                d16 &= 0xffff
+                this.reg[r1.charAt(0)] = d16 >> 8
+                this.reg[r1.charAt(1)] = d16 & 0xff
+                this.clock.m += 2
+            }
+        }
+        //dec SP
+        this.instructions[0b111011] = () => {
+            let d16 = this.reg.sp
+            d16 -= 1
+            d16 &= 0xffff
+            this.reg.sp = d16
+            this.clock.m += 2
+        }
+        // ____________________________________________________
+        // 
+        // Rotate Shift Instructions
+        // ____________________________________________________
+
 
     }
 
