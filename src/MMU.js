@@ -1,4 +1,4 @@
-MMU = {
+MMU =  {
     // Flag indicating BIOS is mapped in
     // BIOS is unmapped with the first instruction above 0x00FF
     _inbios: 1,
