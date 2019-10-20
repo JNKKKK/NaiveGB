@@ -15,6 +15,13 @@ class CPU {
         var regCode = { 'a': 0b111, 'b': 0b000, 'c': 0b001, 'd': 0b101, 'e': 0b011, 'h': 0b100, 'l': 0b101 }
         var regddCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10 }
         var regqqCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10, 'af': 0b11 }
+        var ccCondition = [
+            (f) => !(f >> 7),
+            (f) => f >> 7,
+            (f) => !(f & 0x10),
+            (f) => f & 0x10
+        ]
+        var rstAddress = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38]
         // ____________________________________________________
         // 
         // 8-Bit Transfer and Input/Output Instructions
@@ -977,24 +984,202 @@ class CPU {
         // ____________________________________________________
 
         // JP nn
-        
+        this.instructions[0b11000011] = () => {
+            this.reg.pc += 1
+            this.reg.pc = this.MMU.rw(this.reg.pc)
+            this.reg.pc -= 1
+            this.clock.m += 4
+        }
+        // JP cc, nn
+        for (let cc of [0, 1, 2, 3]) {
+            this.instructions[0b11 << 6 + cc << 3 + 0b010] = () => {
+                this.reg.pc += 1
+                if (ccCondition[cc](this.reg.f)) {
+                    this.reg.pc = this.MMU.rw(this.reg.pc)
+                    this.reg.pc -= 1
+                    this.clock.m += 4
+                } else {
+                    this.reg.pc += 1
+                    this.clock.m += 3
+                }
+            }
+        }
+        //  JR e
+        this.instructions[0b11000] = () => {
+            this.reg.pc += 1
+            let e = this.MMU.rb(this.reg.pc)
+            if (e > 127) e = -((~e + 1) & 255);
+            e += 2
+            this.reg.pc += e
+            this.clock.m += 3
+        }
+        // JR cc, e
+        for (let cc of [0, 1, 2, 3]) {
+            this.instructions[0b1 << 5 + cc << 3] = () => {
+                this.reg.pc += 1
+                if (ccCondition[cc](this.reg.f)) {
+                    let e = this.MMU.rb(this.reg.pc)
+                    if (e > 127) e = -((~e + 1) & 255);
+                    e += 2
+                    this.reg.pc += e
+                    this.clock.m += 3
+                } else {
+                    this.clock.m += 2
+                }
+            }
+        }
+        // JP (HL)   PC ← HL
+        this.instructions[0b11101001] = () => {
+            this.reg.pc = this.reg.h << 8 + this.reg.l
+            this.reg.pc -= 1
+            this.clock.m += 1
+        }
+        // CALL nn
+        this.instructions[0b11001101] = () => {
+            this.reg.sp -= 2
+            this.MMU.ww(this.reg.sp, this.reg.pc + 2)
+            this.reg.pc += 1
+            this.reg.pc = this.MMU.rw(this.reg.pc)
+            this.reg.pc -= 1
+            this.clock.m += 6
+        }
+        // CALL cc, nn
+        for (let cc of [0, 1, 2, 3]) {
+            this.instructions[0b11 << 6 + cc << 3 + 0b100] = () => {
+                if (ccCondition[cc](this.reg.f)) {
+                    this.reg.sp -= 2
+                    this.MMU.ww(this.reg.sp, this.reg.pc + 2)
+                    this.reg.pc += 1
+                    this.reg.pc = this.MMU.rw(this.reg.pc)
+                    this.reg.pc -= 1
+                    this.clock.m += 6
+                } else {
+                    this.reg.pc += 2
+                    this.clock.m += 3
+                }
+            }
+        }
+        // RET
+        this.instructions[0b11001001] = () => {
+            this.reg.pc = this.MMU.rw(this.reg.sp)
+            this.reg.sp += 2
+            this.clock.m += 4
+        }
+        // RETI
+        this.instructions[0b11011001] = () => {
+            this.reg.pc = this.MMU.rw(this.reg.sp)
+            this.reg.sp += 2
+            this.reg.ime = 1
+            this.clock.m += 4
+        }
+        // RET cc
+        for (let cc of [0, 1, 2, 3]) {
+            this.instructions[0b11 << 6 + cc << 3] = () => {
+                if (ccCondition[cc](this.reg.f)) {
+                    this.reg.pc = this.MMU.rw(this.reg.sp)
+                    this.reg.sp += 2
+                    this.clock.m += 5
+                } else {
+                    this.clock.m += 2
+                }
+            }
+        }
+        // RST t
+        for (let t of [0, 1, 2, 3, 4, 5, 6, 7]) {
+            this.instructions[0b11 << 6 + t << 3 + 0b111] = () => {
+                this.reg.sp -= 2
+                this.MMU.ww(this.reg.sp, this.reg.pc + 2)
+                this.reg.pc = rstAddress[t]
+                this.reg.pc -= 1
+                this.clock.m += 4
+            }
+        }
+        // ____________________________________________________________________________
+        // 
+        // General-Purpose Arithmetic Operations and CPU Control Instructions
+        // ____________________________________________________________________________
+
+        // DAA
+        this.instructions[0b100111] = () => {
+            let a = this.reg.a
+            if ((this.reg.f & 0x20) || ((this.reg.a & 15) > 9)) this.reg.a += 6
+            this.reg.f &= 0xEF
+            if ((this.reg.f & 0x20) || (a > 0x99)) {
+                this.reg.a += 0x60
+                this.reg.f |= 0x10
+            }
+            this.clock.m + 1
+        }
+        // CPL
+        this.instructions[0b100111] = () => {
+            this.reg.a ^= 255
+            let z = this.reg.f >> 7, n = 1, h = 1, c = (this.reg.f >> 4) & 0xb1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m + 1
+        }
+        // NOP
+        this.instructions[0b0] = () => {
+            this.clock.m + 1
+        }
+        // CCF
+        this.instructions[0b111111] = () => {
+            let z = this.reg.f >> 7, n = 0, h = 0, c = ~((this.reg.f >> 4) & 0xb1)
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m + 1
+        }
+        // SCF
+        this.instructions[0b110111] = () => {
+            let z = this.reg.f >> 7, n = 0, h = 0, c = 1
+            this.reg.f = z << 7 + n << 6 + h << 5 + c << 4
+            this.clock.m + 1
+        }
+        // DI
+        this.instructions[0b11110011] = () => {
+            this.reg.ime = 0
+            this.clock.m + 1
+        }
+        // EI
+        this.instructions[0b11111011] = () => {
+            this.reg.ime = 1
+            this.clock.m + 1
+        }
+        // HALT
+        this.instructions[0b01110110] = () => {
+            this.halt = 1
+            this.clock.m + 1
+        }
+        // STOP
+        this.instructions[0b10000] = () => {
+            this.stop = 1
+            this.clock.m + 1
+        }
+        // ____________________________________________________
+        // 
+        // CB Prefix
+        // ____________________________________________________
+        this.instructions[0xcb] = () => {
+            this.pc += 1
+            this.instructions[0x100 + this.MMU.rb(this.reg.pc)]();
+            this.clock.m + 1
+        }
     }
 
     reset () {
-        this.reg.a = 0; this.reg.b = 0; this.reg.c = 0; this.reg.d = 0; this.reg.e = 0; this.reg.h = 0; this.reg.l = 0; this.reg.f = 0;
-        this.reg.sp = 0; this.reg.pc = 0; this.reg.i = 0; this.reg.r = 0;
-        this.reg.m = 0; this.reg.t = 0;
-        this.halt = 0; this.stop = 0;
-        this.clock.m = 0; this.clock.t = 0;
-        this.reg.ime = 1;
+        for (let k in this.reg) {
+            this.reg[k] = 0
+        }
+        this.halt = 0
+        this.stop = 0
+        this.clock.m = 0
+        this.clock.t = 0
+        this.reg.ime = 1
     }
 
     exec () {
-        this.reg.r = (this.reg.r + 1) & 127;
-        this._map[MMU.rb(this.reg.pc)]();
-        this.reg.pc += 1;
-        this.reg.pc &= 65535;
-        this.clock.m += this.reg.m; this.clock.t += this.reg.t;
-        if (MMU._inbios && this.reg.pc == 0x0100) MMU._inbios = 0;
+        this.reg.r = (this.reg.r + 1) & 127
+        this.instructions[this.MMU.rb(this.reg.pc)]()
+        this.reg.pc += 1
+        this.reg.pc &= 0xffff
+        if (this.MMU._inbios && this.reg.pc == 0x0100) this.MMU._inbios = 0
     }
 }
