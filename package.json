@@ -18,5 +18,8 @@
   "homepage": "https://github.com/JNKKKK/NaiveGBC#readme",
   "devDependencies": {
     "eslint": "^6.5.1"
+  },
+  "dependencies": {
+    "parcel-bundler": "^1.12.4"
   }
 }
