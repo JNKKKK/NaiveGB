@@ -38,7 +38,6 @@ class CPU {
                 let r2b = regCode[r2]
                 this.instructions[(0b01 << 6) + (r1b << 3) + r2b] = () => {
                     this.reg[r1] = this.reg[r2]
-                    if (r1b == r2b) this.reg[r1] += 1
                     this.clock.m += 1
                 }
             }
@@ -227,11 +226,16 @@ class CPU {
             this.reg.pc += 1
             let e = this.MMU.rb(this.reg.pc)
             if (e > 127) e = -((~e + 1) & 255)
+            let z = 0, n = 0, h = ((this.reg.sp & 0xF) + e) > 0xF ? 1 : 0, c = ((this.reg.sp & 0xFF) + e) > 0xFF ? 1 : 0
+            if (e < 0) {
+                h = ((this.reg.sp & 0xF) + e) < 0x0 ? 0 : 1
+                c = ((this.reg.sp & 0xFF) + e) < 0x0 ? 0 : 1
+            }
             e += this.reg.sp
-            e -= 1
-            this.reg.h = (e >> 8) & 0xff
+            e &= 0xffff
+            this.reg.h = e >> 8
             this.reg.l = e & 0xff
-            this.reg.f = 0
+            this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
             this.clock.m += 3
         }
         // LD (nn), SP   (nn) ← SPL   (nnH) ← SPH
@@ -253,12 +257,13 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[(0b10000 << 3) + r1b] = () => {
                 let a = this.reg.a
+                let b = this.reg[r1]
                 this.reg.a += this.reg[r1]
                 let z = 0, n = 0, h = 0, c = 0
-                if (this.reg.a > 255) c = 1
+                if (this.reg.a > 0xff) c = 1
                 this.reg.a &= 0xff
                 if (this.reg.a == 0) z = 1
-                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                if ((this.reg.a ^ b ^ a) & 0x10) h = 1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 1
             }
@@ -295,13 +300,14 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[(0b10001 << 3) + r1b] = () => {
                 let a = this.reg.a
+                let b = this.reg[r1]
                 this.reg.a += this.reg[r1]
                 this.reg.a += (this.reg.f & 0x10) ? 1 : 0
                 let z = 0, n = 0, h = 0, c = 0
                 if (this.reg.a > 255) c = 1
                 this.reg.a &= 0xff
                 if (this.reg.a == 0) z = 1
-                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                if ((this.reg.a ^ b ^ a) & 0x10) h = 1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 1
             }
@@ -340,12 +346,13 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[(0b10010 << 3) + r1b] = () => {
                 let a = this.reg.a
+                let b = this.reg[r1]
                 this.reg.a -= this.reg[r1]
                 let z = 0, n = 1, h = 0, c = 0
                 if (this.reg.a < 0) c = 1
                 this.reg.a &= 0xff
                 if (this.reg.a == 0) z = 1
-                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                if ((this.reg.a ^ b ^ a) & 0x10) h = 1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 1
             }
@@ -382,13 +389,14 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[(0b10011 << 3) + r1b] = () => {
                 let a = this.reg.a
+                let b = this.reg[r1]
                 this.reg.a -= this.reg[r1]
                 this.reg.a -= (this.reg.f & 0x10) ? 1 : 0
                 let z = 0, n = 1, h = 0, c = 0
                 if (this.reg.a < 0) c = 1
                 this.reg.a &= 0xff
                 if (this.reg.a == 0) z = 1
-                if ((this.reg.a ^ this.reg[r1] ^ a) & 0x10) h = 1
+                if ((this.reg.a ^ b ^ a) & 0x10) h = 1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 1
             }
@@ -400,7 +408,7 @@ class CPU {
             let a = this.reg.a
             this.reg.a -= d8
             this.reg.a -= (this.reg.f & 0x10) ? 1 : 0
-            let z = 0, n = 0, h = 0, c = 0
+            let z = 0, n = 1, h = 0, c = 0
             if (this.reg.a < 0) c = 1
             this.reg.a &= 0xff
             if (this.reg.a == 0) z = 1
@@ -619,12 +627,12 @@ class CPU {
             this.instructions[(r1b << 4) + 0b1001] = () => {
                 let hl = (this.reg.h << 8) + this.reg.l
                 let ss = (this.reg[r1.charAt(0)] << 8) + this.reg[r1.charAt(1)]
-                let z = (this.reg.f >> 7), n = 0, h = (hl & 0xF) + (ss & 0xF) > 0xF ? 1 : 0, c = 0
+                let z = (this.reg.f >> 7), n = 0, h = ((hl & 0xFFF) + (ss & 0xFFF)) > 0xFFF ? 1 : 0, c = 0
                 hl += ss
                 if (hl > 0xffff) c = 1
                 hl &= 0xffff
-                this.reg[r1.charAt(0)] = hl >> 8
-                this.reg[r1.charAt(1)] = hl & 0xff
+                this.reg.h = hl >> 8
+                this.reg.l = hl & 0xff
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 2
             }
@@ -632,7 +640,7 @@ class CPU {
         // ADD HL, SP
         this.instructions[0b111001] = () => {
             let hl = (this.reg.h << 8) + this.reg.l
-            let z = (this.reg.f >> 7), n = 0, h = (hl & 0xF) + (this.reg.sp & 0xF) > 0xF ? 1 : 0, c = 0
+            let z = (this.reg.f >> 7), n = 0, h = ((hl & 0xFFF) + (this.reg.sp & 0xFFF)) > 0xFFF ? 1 : 0, c = 0
             hl += this.reg.sp
             if (hl > 0xffff) c = 1
             hl &= 0xffff
@@ -646,9 +654,12 @@ class CPU {
             this.reg.pc += 1
             let e = this.MMU.rb(this.reg.pc)
             if (e > 127) e = -((~e + 1) & 255)
-            let z = 0, n = 0, h = (this.reg.sp & 0xF) + (e & 0xF) > 0xF ? 1 : 0, c = 0
+            let z = 0, n = 0, h = ((this.reg.sp & 0xF) + e) > 0xF ? 1 : 0, c = ((this.reg.sp & 0xFF) + e) > 0xFF ? 1 : 0
+            if (e < 0) {
+                h = ((this.reg.sp & 0xF) + e) < 0x0 ? 0 : 1
+                c = ((this.reg.sp & 0xFF) + e) < 0x0 ? 0 : 1
+            }
             this.reg.sp += e
-            if (this.reg.sp > 0xffff) c = 1
             this.reg.sp &= 0xffff
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
             this.clock.m += 4
@@ -709,7 +720,7 @@ class CPU {
         //RLA
         this.instructions[0b10111] = () => {
             let b7 = this.reg.a & 0x80 ? 1 : 0
-            this.reg.a = (this.reg.a << 1) + this.reg.f & 0x10 ? 1 : 0
+            this.reg.a = (this.reg.a << 1) + (this.reg.f & 0x10 ? 1 : 0)
             this.reg.a &= 0xff
             this.reg.f = b7 << 4
             this.clock.m += 1
@@ -718,14 +729,14 @@ class CPU {
         this.instructions[0b1111] = () => {
             let b0 = this.reg.a & 0b1
             this.reg.f = b0 << 4
-            this.reg.a = (this.reg.a >> 1) + b0 << 7
+            this.reg.a = (this.reg.a >> 1) + (b0 << 7)
             this.reg.a &= 0xff
             this.clock.m += 1
         }
         //RRA
         this.instructions[0b11111] = () => {
             let b0 = this.reg.a & 0b1
-            this.reg.a = (this.reg.a >> 1) + this.reg.f & 0x10 ? 0b1 << 7 : 0
+            this.reg.a = (this.reg.a >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
             this.reg.a &= 0xff
             this.reg.f = b0 << 4
             this.clock.m += 1
@@ -758,7 +769,7 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b10 << 3) + r1b] = () => {
                 let b7 = this.reg[r1] & 0x80 ? 1 : 0
-                this.reg[r1] = (this.reg[r1] << 1) + this.reg.f & 0x10 ? 1 : 0
+                this.reg[r1] = (this.reg[r1] << 1) + (this.reg.f & 0x10 ? 1 : 0)
                 this.reg[r1] &= 0xff
                 let z = this.reg[r1] ? 0 : 1
                 this.reg.f = (z << 7) + (b7 << 4)
@@ -769,7 +780,7 @@ class CPU {
         this.instructions[0x100 + 0b10110] = () => {
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
-            a = (a << 1) + this.reg.f & 0x10 ? 1 : 0
+            a = (a << 1) + (this.reg.f & 0x10 ? 1 : 0)
             a &= 0xff
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
@@ -781,7 +792,7 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b1 << 3) + r1b] = () => {
                 let b0 = this.reg[r1] & 0b1
-                this.reg[r1] = (this.reg[r1] >> 1) + b0 << 7
+                this.reg[r1] = (this.reg[r1] >> 1) + (b0 << 7)
                 this.reg[r1] &= 0xff
                 let z = this.reg[r1] ? 0 : 1
                 this.reg.f = (z << 7) + (b0 << 4)
@@ -792,7 +803,7 @@ class CPU {
         this.instructions[0x100 + 0b1110] = () => {
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
-            a = (a >> 1) + b0 << 7
+            a = (a >> 1) + (b0 << 7)
             a &= 0xff
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
@@ -804,7 +815,7 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b11 << 3) + r1b] = () => {
                 let b0 = this.reg[r1] & 0b1
-                this.reg[r1] = (this.reg[r1] >> 1) + this.reg.f & 0x10 ? 0b1 << 7 : 0
+                this.reg[r1] = (this.reg[r1] >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
                 this.reg[r1] &= 0xff
                 let z = this.reg[r1] ? 0 : 1
                 this.reg.f = (z << 7) + (b0 << 4)
@@ -815,7 +826,7 @@ class CPU {
         this.instructions[0x100 + 0b11110] = () => {
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
-            a = (a >> 1) + this.reg.f & 0x10 ? 0b1 << 7 : 0
+            a = (a >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
             a &= 0xff
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
@@ -927,9 +938,8 @@ class CPU {
             for (let r1 in regCode) {
                 let r1b = regCode[r1]
                 this.instructions[0x100 + (0b01 << 6) + (b << 3) + r1b] = () => {
-                    let h = 1
-                    let z = ~((this.reg[r1] >> b) & 0b1)
-                    this.reg.f = (z << 7) + (h << 5)
+                    let z = (~((this.reg[r1] >> b) & 0b1)) & 0b1, n = 0, h = 1, c = (this.reg.f >> 4) & 0b1
+                    this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                     this.clock.m += 2
                 }
             }
@@ -938,9 +948,8 @@ class CPU {
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b01 << 6) + (b << 3) + 0b110] = () => {
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
-                let h = 1
-                let z = ~((a >> b) & 0b1)
-                this.reg.f = (z << 7) + (h << 5)
+                let z = (~((a >> b) & 0b1)) & 0b1, n = 0, h = 1, c = (this.reg.f >> 4) & 0b1
+                this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
                 this.clock.m += 3
             }
         }
@@ -1140,50 +1149,50 @@ class CPU {
             this.reg.f &= 0x40;
             this.reg.f &= 0b11010000;
             if (this.reg.a == 0) this.reg.f |= 0x80; if (c) this.reg.f |= 0x10;
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // CPL
         this.instructions[0b101111] = () => {
             this.reg.a ^= 255
-            let z = (this.reg.f >> 7), n = 1, h = 1, c = (this.reg.f >> 4) & 0xb1
+            let z = (this.reg.f >> 7), n = 1, h = 1, c = (this.reg.f >> 4) & 0b1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // NOP
         this.instructions[0b0] = () => {
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // CCF
         this.instructions[0b111111] = () => {
-            let z = (this.reg.f >> 7), n = 0, h = 0, c = ~((this.reg.f >> 4) & 0xb1)
+            let z = (this.reg.f >> 7), n = 0, h = 0, c = (~((this.reg.f >> 4) & 0b1)) & 0b1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // SCF
         this.instructions[0b110111] = () => {
             let z = (this.reg.f >> 7), n = 0, h = 0, c = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // DI
         this.instructions[0b11110011] = () => {
             this.reg.ime = 0
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // EI
         this.instructions[0b11111011] = () => {
             this.reg.ime = 1
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // HALT
         this.instructions[0b01110110] = () => {
             this.halt = 1
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // STOP
         this.instructions[0b10000] = () => {
             this.stop = 1
-            this.clock.m + 1
+            this.clock.m += 1
         }
         // ____________________________________________________
         // 
