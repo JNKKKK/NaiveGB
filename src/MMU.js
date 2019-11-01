@@ -1,5 +1,6 @@
 class MMU {
-    constructor () {
+    constructor (timer) {
+        this.Timer = timer
         this.bios = [
             0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
             0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
@@ -31,7 +32,7 @@ class MMU {
         this.zram = []
         this.inbios = 1
         this.ie = 0
-        this.if_flag = 0
+        this.if = 0
     }
     reset () {
         for (let i = 0; i < 8192; i++) this.wram[i] = 0
@@ -39,7 +40,7 @@ class MMU {
         for (let i = 0; i < 127; i++) this.zram[i] = 0
         this.inbios = 1
         this.ie = 0
-        this.if_flag = 0
+        this.if = 0
         this.carttype = 0
         this.mbc[0] = {}
         this.mbc[1] = { rombank: 0, rambank: 0, ramon: 0, mode: 0 }
@@ -126,9 +127,9 @@ class MMU {
                                         // return KEY.rb();    // JOYP
                                         return 0 //tmp0
                                     case 4: case 5: case 6: case 7:
-                                        // return TIMER.rb(addr)
-                                        return 0 //tmp0
-                                    case 15: return this.if_flag;    // Interrupt flags
+                                        return this.Timer.rb(addr)
+                                        // return 0 //tmp0
+                                    case 15: return this.if;    // Interrupt flags
                                     default: return 0
                                 }
 
@@ -166,6 +167,7 @@ class MMU {
                         if (!val) val = 1
                         this.mbc[1].rombank |= val
                         this.romoffs = this.mbc[1].rombank * 0x4000
+                        // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
                         break
                 }
                 break
@@ -184,6 +186,7 @@ class MMU {
                             this.mbc[1].rombank |= ((val & 3) << 5)
                             this.romoffs = this.mbc[1].rombank * 0x4000
                         }
+                        // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
                 }
                 break
 
@@ -244,12 +247,6 @@ class MMU {
                             const process = require('process');
                             process.stdout.write(String.fromCharCode(val));
                         }
-                        // else if (addr == 0xff02) {
-                        //     console.log('MMU: write ',val,' to 0xff01')
-                        //     console.log('---------------',String.fromCharCode(val))
-                        //     // const process = require('process');
-                        //     // process.stdout.write(String.fromCharCode(val));
-                        // }
                         else switch (addr & 0xF0) {
                             case 0x00:
                                 switch (addr & 0xF) {
@@ -257,9 +254,9 @@ class MMU {
                                         // KEY.wb(val); //tmp0
                                         break
                                     case 4: case 5: case 6: case 7:
-                                        // TIMER.wb(addr, val); //tmp0
+                                        this.Timer.wb(addr, val); //tmp0
                                         break
-                                    case 15: this.if_flag = val; break
+                                    case 15: this.if = val; break
                                 }
                                 break
 
@@ -276,8 +273,8 @@ class MMU {
     }
 
     ww (addr, val) {
-        this.wb(addr, val & 255); 
-        this.wb(addr + 1, val >> 8); 
+        this.wb(addr, val & 255);
+        this.wb(addr + 1, val >> 8);
     }
 }
 

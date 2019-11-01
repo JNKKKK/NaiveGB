@@ -1,5 +1,5 @@
 class CPU {
-    constructor (MMU) {
+    constructor (MMU, timer) {
         this.reg = {
             a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, f: 0,
             sp: 0, pc: 0, i: 0, r: 0,
@@ -10,12 +10,16 @@ class CPU {
         this.halt = 0
         this.stop = 0
         this.MMU = MMU
+        this.timer = timer
         //Make instruction table
         this.instructions = Array(16 * 16 * 2).fill(() => console.log('instruction not implemented!'))
+        this.instructions[NaN] = () => {
+            console.log('[NaN] index ! instruction not implemented!')
+            this.stop = 1
+        }
         // this.instructions = Array(16 * 16 * 2).fill(0)
-        // not implement ADD HL, ss h flag
-        //bugs pc+3 load to stack , pc overflow
-        // rst +1?
+        // bugs pc+3 load to stack , pc overflow
+        //      after rst_interrupt, clock overflow
         var regCode = { 'a': 0b111, 'b': 0b000, 'c': 0b001, 'd': 0b010, 'e': 0b011, 'h': 0b100, 'l': 0b101 }
         var regddCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10 }
         var regqqCode = { 'bc': 0b00, 'de': 0b01, 'hl': 0b10, 'af': 0b11 }
@@ -55,119 +59,153 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b01 << 6) + (r1b << 3) + 0b110] = () => {
+                this.clock.m += 1
+                this.timer.sync(this.clock.m, this.MMU)
                 this.reg[r1] = this.MMU.rb((this.reg.h << 8) + this.reg.l)
-                this.clock.m += 2
+                this.clock.m += 1
             }
         }
         // (HL) <- r
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b1110 << 3) + r1b] = () => {
+                this.clock.m += 1
+                this.timer.sync(this.clock.m, this.MMU)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg[r1])
-                this.clock.m += 2
+                this.clock.m += 1
             }
         }
         // (HL) <- n
         this.instructions[0b110110] = () => {
             this.reg.pc += 1
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.MMU.rb(this.reg.pc))
-            this.clock.m += 3
+            this.clock.m += 1
         }
         // A <- (BC)
         this.instructions[0b001010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb((this.reg.b << 8) + this.reg.c)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A <- (DE)
         this.instructions[0b011010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb((this.reg.d << 8) + this.reg.e)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A <- (FF00H+C)
         this.instructions[0b11110010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb(0xff00 + this.reg.c)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // (FF00H+C) <- A
         this.instructions[0b11100010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb(0xff00 + this.reg.c, this.reg.a)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A <- (n)
         this.instructions[0b11110000] = () => {
             this.reg.pc += 1
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb(0xff00 + this.MMU.rb(this.reg.pc))
-            this.clock.m += 3
+            this.clock.m += 1
         }
         // (n) <- A
         this.instructions[0b11100000] = () => {
             this.reg.pc += 1
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb(0xff00 + this.MMU.rb(this.reg.pc), this.reg.a)
-            this.clock.m += 3
+            this.clock.m += 1
         }
         // A <- (nn)
         this.instructions[0b11111010] = () => {
+            this.clock.m += 3
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.pc += 1
             this.reg.a = this.MMU.rb(this.MMU.rw(this.reg.pc))
             this.reg.pc += 1
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // (nn) <- A
         this.instructions[0b11101010] = () => {
             this.reg.pc += 1
+            this.clock.m += 3
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb(this.MMU.rw(this.reg.pc), this.reg.a)
             this.reg.pc += 1
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // A ← (HL) HL ← HL+1
         this.instructions[0b101010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let hl = (this.reg.h << 8) + this.reg.l
             hl += 1
             hl &= 0xffff
             this.reg.h = hl >> 8
             this.reg.l = hl & 0xff
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A ← (HL) HL ← HL-1
         this.instructions[0b111010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.reg.a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let hl = (this.reg.h << 8) + this.reg.l
             hl -= 1
             hl &= 0xffff
             this.reg.h = hl >> 8
             this.reg.l = hl & 0xff
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // (bc) <- A
         this.instructions[0b10] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.b << 8) + this.reg.c, this.reg.a)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // (de) <- A
         this.instructions[0b10010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.d << 8) + this.reg.e, this.reg.a)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // (HL) ← A HL ← HL+1
         this.instructions[0b100010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg.a)
             let hl = (this.reg.h << 8) + this.reg.l
             hl += 1
             hl &= 0xffff
             this.reg.h = hl >> 8
             this.reg.l = hl & 0xff
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // (HL) ← A HL ← HL-1
         this.instructions[0b110010] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg.a)
             let hl = (this.reg.h << 8) + this.reg.l
             hl -= 1
             hl &= 0xffff
             this.reg.h = hl >> 8
             this.reg.l = hl & 0xff
-            this.clock.m += 2
+            this.clock.m += 1
         }
 
         // ____________________________________________________
@@ -284,6 +322,8 @@ class CPU {
         }
         // A ← A + (HL)
         this.instructions[0b10000110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a += d8
@@ -293,7 +333,7 @@ class CPU {
             if (this.reg.a == 0) z = 1
             if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A ← A+r+CY
         for (let r1 in regCode) {
@@ -329,6 +369,8 @@ class CPU {
         }
         // A ← A+(HL)+CY
         this.instructions[0b10001110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a += d8
@@ -339,7 +381,7 @@ class CPU {
             if (this.reg.a == 0) z = 1
             if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         //A ← A-r
         for (let r1 in regCode) {
@@ -373,6 +415,8 @@ class CPU {
         }
         // A ← A - (HL)
         this.instructions[0b10010110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a -= d8
@@ -382,7 +426,7 @@ class CPU {
             if (this.reg.a == 0) z = 1
             if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // A ← A-r-CY
         for (let r1 in regCode) {
@@ -418,6 +462,8 @@ class CPU {
         }
         // A ← A-(HL)-CY
         this.instructions[0b10011110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a -= d8
@@ -428,7 +474,7 @@ class CPU {
             if (this.reg.a == 0) z = 1
             if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         //A ← A & r
         for (let r1 in regCode) {
@@ -453,12 +499,14 @@ class CPU {
         }
         // A ← A & (HL)
         this.instructions[0b10100110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a &= d8
             let z = 0, n = 0, h = 1, c = 0
             if (this.reg.a == 0) z = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         //A ← A | r
         for (let r1 in regCode) {
@@ -483,12 +531,14 @@ class CPU {
         }
         // A ← A | (HL)
         this.instructions[0b10110110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a |= d8
             let z = 0, n = 0, h = 0, c = 0
             if (this.reg.a == 0) z = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         //A ← A ^ r
         for (let r1 in regCode) {
@@ -513,12 +563,14 @@ class CPU {
         }
         // A ← A ^ (HL)
         this.instructions[0b10101110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a ^= d8
             let z = 0, n = 0, h = 0, c = 0
             if (this.reg.a == 0) z = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         //CP r
         for (let r1 in regCode) {
@@ -551,6 +603,8 @@ class CPU {
         }
         // CP (HL)
         this.instructions[0b10111110] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             a -= d8
@@ -560,16 +614,14 @@ class CPU {
             if (a == 0) z = 1
             if ((this.reg.a ^ d8 ^ a) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 2
+            this.clock.m += 1
         }
         // inc r
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(r1b << 3) + 0b100] = () => {
                 let a = this.reg[r1]
-                // console.log(r1,':',a.toString('16'))
                 this.reg[r1] += 1
-                // console.log(r1,':',this.reg[r1].toString('16'))
                 this.reg[r1] &= 0xff
                 let z = 0, n = 0, h = 0, c = (this.reg.f >> 4) & 1
                 if (this.reg[r1] == 0) z = 1
@@ -580,15 +632,19 @@ class CPU {
         }
         // inc (HL)
         this.instructions[0b110100] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 + 1
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = 0, n = 0, h = 0, c = (this.reg.f >> 4) & 1
             if (a == 0) z = 1
             if ((a ^ d8 ^ 1) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 3
+            this.clock.m += 1
         }
         // dec r
         for (let r1 in regCode) {
@@ -606,15 +662,19 @@ class CPU {
         }
         // dec (HL)
         this.instructions[0b110101] = () => {
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 - 1
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = 0, n = 1, h = 0, c = (this.reg.f >> 4) & 1
             if (a == 0) z = 1
             if ((a ^ 1 ^ d8) & 0x10) h = 1
             this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-            this.clock.m += 3
+            this.clock.m += 1
         }
         // ____________________________________________________
         // 
@@ -755,14 +815,18 @@ class CPU {
         }
         // RLC (HL)
         this.instructions[0x100 + 0b110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1) + b7
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // RL r
         for (let r1 in regCode) {
@@ -778,14 +842,18 @@ class CPU {
         }
         // RL (HL)
         this.instructions[0x100 + 0b10110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1) + (this.reg.f & 0x10 ? 1 : 0)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // RRC r
         for (let r1 in regCode) {
@@ -801,14 +869,18 @@ class CPU {
         }
         //  RRC (HL)
         this.instructions[0x100 + 0b1110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1) + (b0 << 7)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         //  RR r
         for (let r1 in regCode) {
@@ -824,14 +896,18 @@ class CPU {
         }
         // RR (HL)
         this.instructions[0x100 + 0b11110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // SLA r
         for (let r1 in regCode) {
@@ -847,14 +923,18 @@ class CPU {
         }
         // SLA (HL)
         this.instructions[0x100 + 0b100110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // SRA r
         for (let r1 in regCode) {
@@ -871,15 +951,19 @@ class CPU {
         }
         // SRA (HL)
         this.instructions[0x100 + 0b101110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             let b7 = a & 0x80 ? 1 : 0
             a = (a >> 1) + (b7 << 7)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // SRL r
         for (let r1 in regCode) {
@@ -895,14 +979,18 @@ class CPU {
         }
         // SRL (HL)
         this.instructions[0x100 + 0b111110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1)
             a &= 0xff
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
-            this.clock.m += 4
+            this.clock.m += 1
         }
         // SWAP r
         for (let r1 in regCode) {
@@ -918,14 +1006,18 @@ class CPU {
         }
         // SWAP (HL)
         this.instructions[0x100 + 0b110110] = () => {
+            this.clock.m += 2
+            this.timer.sync(this.clock.m, this.MMU)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let h = a >> 4
             let l = a & 0xf
             a = (l << 4) + h
+            this.clock.m += 1
+            this.timer.sync(this.clock.m, this.MMU)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = z << 7
-            this.clock.m += 4
+            this.clock.m += 1
         }
 
         // ____________________________________________________
@@ -947,10 +1039,12 @@ class CPU {
         // BIT b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b01 << 6) + (b << 3) + 0b110] = () => {
+                this.clock.m += 2
+                this.timer.sync(this.clock.m, this.MMU)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 let z = (~((a >> b) & 0b1)) & 0b1, n = 0, h = 1, c = (this.reg.f >> 4) & 0b1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
-                this.clock.m += 3
+                this.clock.m += 1
             }
         }
         // SET b, r
@@ -966,10 +1060,14 @@ class CPU {
         // SET b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b11 << 6) + (b << 3) + 0b110] = () => {
+                this.clock.m += 2
+                this.timer.sync(this.clock.m, this.MMU)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 a |= 1 << b
+                this.clock.m += 1
+                this.timer.sync(this.clock.m, this.MMU)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
-                this.clock.m += 4
+                this.clock.m += 1
             }
         }
         // RES b, r
@@ -985,10 +1083,14 @@ class CPU {
         // RES b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b10 << 6) + (b << 3) + 0b110] = () => {
+                this.clock.m += 2
+                this.timer.sync(this.clock.m, this.MMU)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 a &= (~(1 << b)) & 0xff
+                this.clock.m += 1
+                this.timer.sync(this.clock.m, this.MMU)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
-                this.clock.m += 4
+                this.clock.m += 1
             }
         }
         // ____________________________________________________
@@ -1191,8 +1293,9 @@ class CPU {
         }
         // STOP
         this.instructions[0b10000] = () => {
-            this.stop = 1
+            // this.stop = 1
             this.clock.m += 1
+            // console.log('STOP instruction')
         }
         // ____________________________________________________
         // 
@@ -1220,14 +1323,6 @@ class CPU {
         this.reg.pc = 0x100
         this.MMU.inbios = 0
         this.reg.sp = 0xFFFE
-        // this.reg.a = 0x11;
-        // this.reg.f = 0x80;
-        // this.reg.b = 0x00;
-        // this.reg.c = 0x00;
-        // this.reg.d = 0xff;
-        // this.reg.e = 0x56;
-        // this.reg.h = 0x00;
-        // this.reg.l = 0x0d;
         this.reg.a = 0x01
         this.reg.f = 0xb0
         this.reg.b = 0x00
@@ -1238,13 +1333,51 @@ class CPU {
         this.reg.l = 0x4d
     }
 
+    rst_interrupt (addr) {
+        // console.log('\nrst_interrupt: 0x',addr.toString('16'))
+        this.reg.sp -= 2
+        this.MMU.ww(this.reg.sp, this.reg.pc)
+        this.reg.pc = addr
+        this.reg.pc -= 1
+        this.reg.ime = 0
+        this.clock.m += 4
+    }
+
+    handle_interrupt () {
+        if (this.reg.ime && this.MMU.ie && this.MMU.if) {
+            let ifired = this.MMU.ie & this.MMU.if
+            if (ifired & 0b1) {
+                this.MMU.if &= (0xff - 0b1)
+                this.rst_interrupt(0x40)
+                this.halt = 0
+            } else if (ifired & 0b10) {
+                this.MMU.if &= (0xff - 0b10)
+                this.rst_interrupt(0x48)
+                this.halt = 0
+            } else if (ifired & 0b100) {
+                this.MMU.if &= (0xff - 0b100)
+                this.rst_interrupt(0x50)
+                this.halt = 0
+            } else if (ifired & 0b1000) {
+                this.MMU.if &= (0xff - 0b1000)
+                this.rst_interrupt(0x58)
+                this.halt = 0
+            } else if (ifired & 0b10000) {
+                this.MMU.if &= (0xff - 0b10000)
+                this.rst_interrupt(0x60)
+                this.halt = 0
+            }
+        }
+        if (this.halt && (!this.reg.ime) && this.MMU.ie && this.MMU.if) {
+            this.halt = 0
+        }
+    }
+
     exec () {
         if (this.halt) return
         if (this.stop) return
         this.reg.r = (this.reg.r + 1) & 127
         // console.log('pc: ', this.reg.pc.toString('16'))
-        // if (this.reg.pc == 0x204) console.log('pc204 b:', this.reg.b.toString('16'))
-        // console.log(this.MMU.rb(this.reg.pc).toString('16'))
         this.instructions[this.MMU.rb(this.reg.pc)]()
         this.reg.pc += 1
         this.reg.pc &= 0xffff

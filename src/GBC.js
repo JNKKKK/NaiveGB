@@ -1,8 +1,15 @@
 import CPU from './CPU'
 import MMU from './MMU'
+import Timer from './Timer'
 
-var mmu = new MMU()
+var timer = new Timer()
+var mmu = new MMU(timer)
 mmu.reset()
+// mmu.load('./testROMs/instr_timing.gb')
+mmu.load('./testROMs/mem_timing.gb')
+// mmu.load('./testROMs/01-read_timing.gb')
+// mmu.load('./testROMs/02-write_timing.gb')
+// mmu.load('./testROMs/03-modify_timing.gb')
 // mmu.load('./testROMs/cpu_instrs.gb')
 // mmu.load('./testROMs/01-special.gb')
 // mmu.load('./testROMs/02-interrupts.gb')
@@ -18,7 +25,7 @@ mmu.reset()
 
 // mmu.load('./testROMs/mytest.gb')
 // console.log(MMU.if_inbios)
-var cpu = new CPU(mmu)
+var cpu = new CPU(mmu,timer)
 cpu.reset()
 cpu.skip_bios()
 
@@ -43,7 +50,9 @@ var readlineSync = require('readline-sync');
 
 while (1) {
     cpu.exec()
-    if (cpu.halt || cpu.stop) break
+    if (cpu.stop) break
+    timer.sync(cpu.clock.m, mmu)
+    cpu.handle_interrupt()
     // if (cpu.reg.pc == 0xc2a8) {
     //     print_regs(cpu)
     //     readlineSync.question('Press any keys to continue...');
