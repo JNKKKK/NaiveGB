@@ -3,8 +3,11 @@ import MMU from './MMU'
 import Timer from './Timer'
 
 var timer = new Timer()
-var mmu = new MMU(timer)
+var mmu = new MMU()
+timer.connect_mmu(mmu)
+mmu.connect_timer(timer)
 mmu.reset()
+
 // mmu.load('./testROMs/instr_timing.gb')
 mmu.load('./testROMs/mem_timing.gb')
 // mmu.load('./testROMs/01-read_timing.gb')
@@ -22,19 +25,14 @@ mmu.load('./testROMs/mem_timing.gb')
 // mmu.load('./testROMs/09-op r,r.gb')
 // mmu.load('./testROMs/10-bit ops.gb')
 // mmu.load('./testROMs/11-op a,(hl).gb')
-
 // mmu.load('./testROMs/mytest.gb')
-// console.log(MMU.if_inbios)
-var cpu = new CPU(mmu,timer)
+
+var cpu = new CPU()
+cpu.connect_mmu(mmu)
+cpu.connect_timer(timer)
 cpu.reset()
 cpu.skip_bios()
 
-// console.log('ins length', cpu.instructions.length)
-// cpu.instructions.forEach((ins, i) => { if (ins == 0) console.log(i.toString(16)) })
-
-// setInterval(() => {
-//     cpu.exec()
-// }, 10);
 
 function print_regs (cpu) {
     console.log('Registers:')

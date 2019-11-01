@@ -1,6 +1,5 @@
 class MMU {
-    constructor (timer) {
-        this.Timer = timer
+    constructor () {
         this.bios = [
             0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
             0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
@@ -33,6 +32,9 @@ class MMU {
         this.inbios = 1
         this.ie = 0
         this.if = 0
+    }
+    connect_timer(timer) {
+        this.timer = timer
     }
     reset () {
         for (let i = 0; i < 8192; i++) this.wram[i] = 0
@@ -127,7 +129,7 @@ class MMU {
                                         // return KEY.rb();    // JOYP
                                         return 0 //tmp0
                                     case 4: case 5: case 6: case 7:
-                                        return this.Timer.rb(addr)
+                                        return this.timer.rb(addr)
                                         // return 0 //tmp0
                                     case 15: return this.if;    // Interrupt flags
                                     default: return 0
@@ -254,7 +256,7 @@ class MMU {
                                         // KEY.wb(val); //tmp0
                                         break
                                     case 4: case 5: case 6: case 7:
-                                        this.Timer.wb(addr, val); //tmp0
+                                        this.timer.wb(addr, val); //tmp0
                                         break
                                     case 15: this.if = val; break
                                 }

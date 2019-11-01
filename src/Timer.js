@@ -13,7 +13,11 @@ class Timer {
         this.cnt_m = 0
     }
 
-    sync (m, MMU) {
+    connect_mmu (mmu) {
+        this.MMU = mmu
+    }
+
+    sync (m) {
         let dm = m - this.last_m
         this.last_m = m
         if (dm == 0) dm = 1
@@ -38,7 +42,7 @@ class Timer {
                 this.reg.counter += 1
                 if (this.reg.counter > 0xff) {
                     this.reg.counter = this.reg.modulo
-                    MMU.if |= 4
+                    this.MMU.if |= 4
                 }
             }
         }
