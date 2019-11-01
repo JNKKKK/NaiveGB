@@ -1,7 +1,6 @@
 class Timer {
     constructor () {
         this.reg = { divider: 0, counter: 0, modulo: 0, control: 0 }
-        this.last_m = 0
         this.div_m = 0
         this.cnt_m = 0
     }
@@ -17,12 +16,9 @@ class Timer {
         this.MMU = mmu
     }
 
-    sync (m) {
-        let dm = m - this.last_m
-        this.last_m = m
-        if (dm == 0) dm = 1
+    step (m) {
         // divider timer
-        this.div_m += dm
+        this.div_m += m
         if (this.div_m >= 4 * 16) {
             this.div_m -= 4 * 16
             this.reg.divider += 1
@@ -30,7 +26,7 @@ class Timer {
         }
         // counter timer
         if (this.reg.control & 0b100) {
-            this.cnt_m += dm
+            this.cnt_m += m
             let threshold = 4
             if ((this.reg.control & 0b11) == 0) threshold = 4 * 64
             if ((this.reg.control & 0b11) == 1) threshold = 4 * 1

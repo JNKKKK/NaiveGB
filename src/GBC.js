@@ -1,8 +1,8 @@
 import CPU from './CPU'
 import MMU from './MMU'
-import Timer from './Timer'
+import TIMER from './Timer'
 
-var timer = new Timer()
+var timer = new TIMER()
 var mmu = new MMU()
 timer.connect_mmu(mmu)
 mmu.connect_timer(timer)
@@ -49,7 +49,6 @@ var readlineSync = require('readline-sync');
 while (1) {
     cpu.exec()
     if (cpu.stop) break
-    timer.sync(cpu.clock.m, mmu)
     cpu.handle_interrupt()
     // if (cpu.reg.pc == 0xc2a8) {
     //     print_regs(cpu)
