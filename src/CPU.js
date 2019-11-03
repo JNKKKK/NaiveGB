@@ -15,6 +15,10 @@ class CPU {
             console.log('[NaN] index ! instruction not implemented!')
             this.stop = 1
         }
+        this.instructions[undefined] = () => {
+            console.log('[undefined] index ! instruction not implemented!')
+            this.stop = 1
+        }
         // this.instructions = Array(16 * 16 * 2).fill(0)
         // bugs pc+3 load to stack , pc overflow
         //      after rst_interrupt, clock overflow
@@ -66,7 +70,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b1110 << 3) + r1b] = () => {
-                this.timer.step(1)                
+                this.timer.step(1)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg[r1])
                 this.timer.step(1)
             }
@@ -74,51 +78,51 @@ class CPU {
         // (HL) <- n
         this.instructions[0b110110] = () => {
             this.reg.pc += 1
-            this.timer.step(2)            
+            this.timer.step(2)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.MMU.rb(this.reg.pc))
             this.timer.step(1)
         }
         // A <- (BC)
         this.instructions[0b001010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.reg.a = this.MMU.rb((this.reg.b << 8) + this.reg.c)
             this.timer.step(1)
         }
         // A <- (DE)
         this.instructions[0b011010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.reg.a = this.MMU.rb((this.reg.d << 8) + this.reg.e)
             this.timer.step(1)
         }
         // A <- (FF00H+C)
         this.instructions[0b11110010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.reg.a = this.MMU.rb(0xff00 + this.reg.c)
             this.timer.step(1)
         }
         // (FF00H+C) <- A
         this.instructions[0b11100010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb(0xff00 + this.reg.c, this.reg.a)
             this.timer.step(1)
         }
         // A <- (n)
         this.instructions[0b11110000] = () => {
             this.reg.pc += 1
-            this.timer.step(2)            
+            this.timer.step(2)
             this.reg.a = this.MMU.rb(0xff00 + this.MMU.rb(this.reg.pc))
             this.timer.step(1)
         }
         // (n) <- A
         this.instructions[0b11100000] = () => {
             this.reg.pc += 1
-            this.timer.step(2)            
+            this.timer.step(2)
             this.MMU.wb(0xff00 + this.MMU.rb(this.reg.pc), this.reg.a)
             this.timer.step(1)
         }
         // A <- (nn)
         this.instructions[0b11111010] = () => {
-            this.timer.step(3)            
+            this.timer.step(3)
             this.reg.pc += 1
             this.reg.a = this.MMU.rb(this.MMU.rw(this.reg.pc))
             this.reg.pc += 1
@@ -127,14 +131,14 @@ class CPU {
         // (nn) <- A
         this.instructions[0b11101010] = () => {
             this.reg.pc += 1
-            this.timer.step(3)            
+            this.timer.step(3)
             this.MMU.wb(this.MMU.rw(this.reg.pc), this.reg.a)
             this.reg.pc += 1
             this.timer.step(1)
         }
         // A ← (HL) HL ← HL+1
         this.instructions[0b101010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.reg.a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let hl = (this.reg.h << 8) + this.reg.l
             hl += 1
@@ -145,7 +149,7 @@ class CPU {
         }
         // A ← (HL) HL ← HL-1
         this.instructions[0b111010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.reg.a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let hl = (this.reg.h << 8) + this.reg.l
             hl -= 1
@@ -156,19 +160,19 @@ class CPU {
         }
         // (bc) <- A
         this.instructions[0b10] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.b << 8) + this.reg.c, this.reg.a)
             this.timer.step(1)
         }
         // (de) <- A
         this.instructions[0b10010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.d << 8) + this.reg.e, this.reg.a)
             this.timer.step(1)
         }
         // (HL) ← A HL ← HL+1
         this.instructions[0b100010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg.a)
             let hl = (this.reg.h << 8) + this.reg.l
             hl += 1
@@ -179,7 +183,7 @@ class CPU {
         }
         // (HL) ← A HL ← HL-1
         this.instructions[0b110010] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.reg.a)
             let hl = (this.reg.h << 8) + this.reg.l
             hl -= 1
@@ -303,7 +307,7 @@ class CPU {
         }
         // A ← A + (HL)
         this.instructions[0b10000110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a += d8
@@ -349,7 +353,7 @@ class CPU {
         }
         // A ← A+(HL)+CY
         this.instructions[0b10001110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a += d8
@@ -394,7 +398,7 @@ class CPU {
         }
         // A ← A - (HL)
         this.instructions[0b10010110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a -= d8
@@ -440,7 +444,7 @@ class CPU {
         }
         // A ← A-(HL)-CY
         this.instructions[0b10011110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             this.reg.a -= d8
@@ -476,7 +480,7 @@ class CPU {
         }
         // A ← A & (HL)
         this.instructions[0b10100110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a &= d8
             let z = 0, n = 0, h = 1, c = 0
@@ -507,7 +511,7 @@ class CPU {
         }
         // A ← A | (HL)
         this.instructions[0b10110110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a |= d8
             let z = 0, n = 0, h = 0, c = 0
@@ -538,7 +542,7 @@ class CPU {
         }
         // A ← A ^ (HL)
         this.instructions[0b10101110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a ^= d8
             let z = 0, n = 0, h = 0, c = 0
@@ -577,7 +581,7 @@ class CPU {
         }
         // CP (HL)
         this.instructions[0b10111110] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
             a -= d8
@@ -606,11 +610,11 @@ class CPU {
         // inc (HL)
         this.instructions[0b110100] = () => {
             this.timer.step(1)
-            
+
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 + 1
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = 0, n = 0, h = 0, c = (this.reg.f >> 4) & 1
             if (a == 0) z = 1
@@ -634,11 +638,11 @@ class CPU {
         }
         // dec (HL)
         this.instructions[0b110101] = () => {
-            this.timer.step(1)            
+            this.timer.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 - 1
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = 0, n = 1, h = 0, c = (this.reg.f >> 4) & 1
             if (a == 0) z = 1
@@ -785,12 +789,12 @@ class CPU {
         }
         // RLC (HL)
         this.instructions[0x100 + 0b110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1) + b7
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
@@ -810,12 +814,12 @@ class CPU {
         }
         // RL (HL)
         this.instructions[0x100 + 0b10110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1) + (this.reg.f & 0x10 ? 1 : 0)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
@@ -835,12 +839,12 @@ class CPU {
         }
         //  RRC (HL)
         this.instructions[0x100 + 0b1110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1) + (b0 << 7)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
@@ -860,12 +864,12 @@ class CPU {
         }
         // RR (HL)
         this.instructions[0x100 + 0b11110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
@@ -885,12 +889,12 @@ class CPU {
         }
         // SLA (HL)
         this.instructions[0x100 + 0b100110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
             a = (a << 1)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b7 << 4)
@@ -911,13 +915,13 @@ class CPU {
         }
         // SRA (HL)
         this.instructions[0x100 + 0b101110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             let b7 = a & 0x80 ? 1 : 0
             a = (a >> 1) + (b7 << 7)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
@@ -937,12 +941,12 @@ class CPU {
         }
         // SRL (HL)
         this.instructions[0x100 + 0b111110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
             a = (a >> 1)
             a &= 0xff
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = (z << 7) + (b0 << 4)
@@ -962,12 +966,12 @@ class CPU {
         }
         // SWAP (HL)
         this.instructions[0x100 + 0b110110] = () => {
-            this.timer.step(2)            
+            this.timer.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let h = a >> 4
             let l = a & 0xf
             a = (l << 4) + h
-            this.timer.step(1)            
+            this.timer.step(1)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
             let z = a ? 0 : 1
             this.reg.f = z << 7
@@ -993,7 +997,7 @@ class CPU {
         // BIT b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b01 << 6) + (b << 3) + 0b110] = () => {
-                this.timer.step(2)                
+                this.timer.step(2)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 let z = (~((a >> b) & 0b1)) & 0b1, n = 0, h = 1, c = (this.reg.f >> 4) & 0b1
                 this.reg.f = (z << 7) + (n << 6) + (h << 5) + (c << 4)
@@ -1013,10 +1017,10 @@ class CPU {
         // SET b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b11 << 6) + (b << 3) + 0b110] = () => {
-                this.timer.step(2)                
+                this.timer.step(2)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 a |= 1 << b
-                this.timer.step(1)                
+                this.timer.step(1)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
                 this.timer.step(1)
             }
@@ -1034,10 +1038,10 @@ class CPU {
         // RES b, (HL)
         for (let b of [0, 1, 2, 3, 4, 5, 6, 7]) {
             this.instructions[0x100 + (0b10 << 6) + (b << 3) + 0b110] = () => {
-                this.timer.step(2)                
+                this.timer.step(2)
                 let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
                 a &= (~(1 << b)) & 0xff
-                this.timer.step(1)                
+                this.timer.step(1)
                 this.MMU.wb((this.reg.h << 8) + this.reg.l, a)
                 this.timer.step(1)
             }
@@ -1329,7 +1333,8 @@ class CPU {
         if (this.stop) return
         this.reg.r = (this.reg.r + 1) & 127
         // console.log('pc: ', this.reg.pc.toString('16'))
-        this.instructions[this.MMU.rb(this.reg.pc)]()
+        let instr = this.MMU.rb(this.reg.pc)
+        this.instructions[instr]()
         this.reg.pc += 1
         this.reg.pc &= 0xffff
         if (this.MMU.inbios && this.reg.pc == 0x0100) this.MMU.inbios = 0

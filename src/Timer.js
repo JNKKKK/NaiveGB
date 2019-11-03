@@ -3,11 +3,12 @@ class Timer {
         this.reg = { divider: 0, counter: 0, modulo: 0, control: 0 }
         this.div_m = 0
         this.cnt_m = 0
+        this.total_m = 0
     }
 
     reset () {
         this.reg = { divider: 0, counter: 0, modulo: 0, control: 0 }
-        this.last_m = 0
+        this.total_m = 0
         this.div_m = 0
         this.cnt_m = 0
     }
@@ -16,7 +17,12 @@ class Timer {
         this.MMU = mmu
     }
 
+    connect_gpu (gpu) {
+        this.GPU = gpu
+    }
+
     step (m) {
+        this.total_m += m
         // divider timer
         this.div_m += m
         if (this.div_m >= 4 * 16) {
@@ -42,7 +48,8 @@ class Timer {
                 }
             }
         }
-
+        // gpu checkline
+        this.GPU.checkline(m)
     }
 
     rb (addr) {

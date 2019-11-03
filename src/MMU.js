@@ -18,7 +18,7 @@ class MMU {
             0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
-        this.rom = ''
+        this.rom = 'initrom'
         this.carttype = 0
         this.mbc = [
             {},
@@ -33,8 +33,17 @@ class MMU {
         this.ie = 0
         this.if = 0
     }
-    connect_timer(timer) {
+
+    connect_timer (timer) {
         this.timer = timer
+    }
+
+    connect_gpu (gpu) {
+        this.GPU = gpu
+    }
+
+    connect_cpu (cpu) {
+        this.CPU = cpu
     }
     reset () {
         for (let i = 0; i < 8192; i++) this.wram[i] = 0
@@ -48,25 +57,39 @@ class MMU {
         this.mbc[1] = { rombank: 0, rambank: 0, ramon: 0, mode: 0 }
         this.romoffs = 0x4000
         this.ramoffs = 0
-        // console.log('MMU', 'Reset.')
     }
-    // get if_inbios () {
-    //     return this.inbios
-    // }
-    // bios_end () {
-    //     this.inbios = 0
-    // }
 
-    load (file) {
+    load_rom_ajax (url, cb) {
+        var req = new XMLHttpRequest();
+        req.open("GET", url, true);
+        req.responseType = "arraybuffer";
+        let mmu = this
+        req.onload = function () {
+            var arrayBuffer = req.response;
+            if (arrayBuffer) {
+                var byteArray = new Uint8Array(arrayBuffer);
+                mmu.rom = byteArray
+                mmu.carttype = mmu.rom[0x0147]
+                if (cb) cb()
+            } else {
+                console.log('AJAX load rom error!')
+            }
+        };
+        req.send(null);
+    }
+
+    load_rom_localfile (file) {
         let fs = require('fs')
         let b = fs.readFileSync(file, 'binary').toString('binary')
         this.rom = b
         this.carttype = this.rom.charCodeAt(0x0147)
-
         // console.log('MMU', 'ROM loaded, ' + this.rom.length + ' bytes.')
     }
 
     rb (addr) {
+        if ((addr > 0xffff) || (addr < 0)) {
+            console.log('read memory overflow: ', addr.toString('16'))
+        }
         switch (addr & 0xF000) {
             // ROM bank 0
             case 0x0000:
@@ -74,22 +97,21 @@ class MMU {
                     if (addr < 0x0100) return this.bios[addr]
                 }
                 else {
-                    return this.rom.charCodeAt(addr)
+                    return this.rom[addr]
                 }
                 break
             case 0x1000:
             case 0x2000:
             case 0x3000:
-                return this.rom.charCodeAt(addr)
+                return this.rom[addr]
 
             // ROM bank 1
             case 0x4000: case 0x5000: case 0x6000: case 0x7000:
-                return this.rom.charCodeAt(this.romoffs + (addr & 0x3FFF))
+                return this.rom[this.romoffs + (addr & 0x3FFF)]
 
             // VRAM
             case 0x8000: case 0x9000:
-                // return GPU._vram[addr & 0x1FFF]
-                return 0 //tmp0
+                return this.GPU.vram[addr & 0x1FFF]
 
             // External RAM
             case 0xA000: case 0xB000:
@@ -111,8 +133,7 @@ class MMU {
 
                     // OAM
                     case 0xE00:
-                        // return ((addr & 0xFF) < 0xA0) ? GPU._oam[addr & 0xFF] : 0
-                        return 0 //tmp0
+                        return ((addr & 0xFF) < 0xA0) ? this.GPU.oam[addr & 0xFF] : 0
 
                     // Zeropage RAM, I/O, interrupts
                     case 0xF00:
@@ -130,7 +151,7 @@ class MMU {
                                         return 0 //tmp0
                                     case 4: case 5: case 6: case 7:
                                         return this.timer.rb(addr)
-                                        // return 0 //tmp0
+                                    // return 0 //tmp0
                                     case 15: return this.if;    // Interrupt flags
                                     default: return 0
                                 }
@@ -139,8 +160,7 @@ class MMU {
                                 return 0
 
                             case 0x40: case 0x50: case 0x60: case 0x70:
-                                // return GPU.rb(addr)
-                                return 0 //tmp0
+                                return this.GPU.rb(addr)
                         }
                 }
         }
@@ -149,6 +169,10 @@ class MMU {
     rw (addr) { return this.rb(addr) + (this.rb(addr + 1) << 8); }
 
     wb (addr, val) {
+        if ((addr > 0xffff) || (addr < 0)) {
+            console.log('write memory overflow: ', addr.toString('16'))
+            console.log('mmu pc: ',this.CPU.reg.pc.toString('16'))
+        }
         switch (addr & 0xF000) {
             // ROM bank 0
             // MBC1: Turn external RAM on
@@ -188,7 +212,7 @@ class MMU {
                             this.mbc[1].rombank |= ((val & 3) << 5)
                             this.romoffs = this.mbc[1].rombank * 0x4000
                         }
-                        // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
+                    // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
                 }
                 break
 
@@ -202,8 +226,8 @@ class MMU {
 
             // VRAM
             case 0x8000: case 0x9000:
-                // GPU._vram[addr & 0x1FFF] = val; //tmp0
-                // GPU.updatetile(addr & 0x1FFF, val); //tmp0
+                this.GPU.vram[addr & 0x1FFF] = val; //tmp0
+                this.GPU.updatetile(addr & 0x1FFF, val); //tmp0
                 break
 
             // External RAM
@@ -230,9 +254,11 @@ class MMU {
                     // OAM
                     case 0xE00:
                         if ((addr & 0xFF) < 0xA0) {
-                            // GPU._oam[addr & 0xFF] = val; //tmp0
+                            this.GPU.oam[addr & 0xFF] = val; //tmp0
+                            this.GPU.updateoam(addr, val);
                         }
-                        // GPU.updateoam(addr, val); //tmp0
+                        console.log(addr.toString('16'))
+                        console.log('mmu pc: ',this.CPU.reg.pc.toString('16'))
                         break
 
                     // Zeropage RAM, I/O, interrupts
@@ -245,9 +271,9 @@ class MMU {
                         }
                         else if (addr == 0xff01) {
                             // console.log('MMU: write 0x',val.toString('16'),' to 0xff01')
-                            // console.log('---------------',String.fromCharCode(val))
-                            const process = require('process');
-                            process.stdout.write(String.fromCharCode(val));
+                            console.log(String.fromCharCode(val))
+                            // const process = require('process');
+                            // process.stdout.write(String.fromCharCode(val));
                         }
                         else switch (addr & 0xF0) {
                             case 0x00:
@@ -266,7 +292,7 @@ class MMU {
                                 break
 
                             case 0x40: case 0x50: case 0x60: case 0x70:
-                                // GPU.wb(addr, val); //tmp0
+                                this.GPU.wb(addr, val); //tmp0
                                 break
                         }
                 }
