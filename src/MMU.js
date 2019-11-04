@@ -14,7 +14,7 @@ class MMU {
             0x05, 0x20, 0xF5, 0x22, 0x23, 0x22, 0x23, 0xC9, 0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B,
             0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D, 0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E,
             0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99, 0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC,
-            0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E, 0x3c, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x4C,
+            0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E, 0x3c, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x3C,
             0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
@@ -93,13 +93,12 @@ class MMU {
         switch (addr & 0xF000) {
             // ROM bank 0
             case 0x0000:
-                if (this.inbios) {
-                    if (addr < 0x0100) return this.bios[addr]
+                if ((this.inbios) && (addr < 0x0100)) {
+                    return this.bios[addr]
                 }
                 else {
                     return this.rom[addr]
                 }
-                break
             case 0x1000:
             case 0x2000:
             case 0x3000:
@@ -171,7 +170,7 @@ class MMU {
     wb (addr, val) {
         if ((addr > 0xffff) || (addr < 0)) {
             console.log('write memory overflow: ', addr.toString('16'))
-            console.log('mmu pc: ',this.CPU.reg.pc.toString('16'))
+            console.log('mmu pc: ', this.CPU.reg.pc.toString('16'))
         }
         switch (addr & 0xF000) {
             // ROM bank 0
@@ -226,8 +225,7 @@ class MMU {
 
             // VRAM
             case 0x8000: case 0x9000:
-                this.GPU.vram[addr & 0x1FFF] = val; //tmp0
-                this.GPU.updatetile(addr & 0x1FFF, val); //tmp0
+                this.GPU.vram[addr & 0x1FFF] = val;
                 break
 
             // External RAM
@@ -254,11 +252,8 @@ class MMU {
                     // OAM
                     case 0xE00:
                         if ((addr & 0xFF) < 0xA0) {
-                            this.GPU.oam[addr & 0xFF] = val; //tmp0
-                            this.GPU.updateoam(addr, val);
+                            this.GPU.oam[addr & 0xFF] = val;
                         }
-                        console.log(addr.toString('16'))
-                        console.log('mmu pc: ',this.CPU.reg.pc.toString('16'))
                         break
 
                     // Zeropage RAM, I/O, interrupts

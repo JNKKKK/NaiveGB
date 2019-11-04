@@ -1,64 +1,69 @@
+class tile {
+    constructor () {
+
+    }
+}
+
+
 class GPU {
 
     constructor () {
-        this.vram = []
-        this.oam = []
-        this.reg = []
-        this.tilemap = []
-        this.objdata = []
-        this.objdatasorted = []
-        this.palette = { 'bg': [], 'obj0': [], 'obj1': [] }
-        this.scanrow = []
-
-        this.curline = 0
-        this.curscan = 0
-        this.linemode = 0
-        this.modeclocks = 0
-
-        this.yscrl = 0
-        this.xscrl = 0
-        this.raster = 0
-        this.ints = 0
-
-        this.lcdon = 0
-        this.bgon = 0
-        this.objon = 0
-        this.winon = 0
-
-        this.objsize = 0
-
-        this.bgtilebase = 0x0000
-        this.bgmapbase = 0x1800
-        this.wintilebase = 0x1800
-    }
-
-    connect_mmu (mmu) {
-        this.MMU = mmu
+        this.reset()
     }
 
     reset () {
+        // LCDC reg
+        this.lcdc_0_bg_disp = 0
+        this.lcdc_1_obj_enable = 0
+        this.lcdc_2_obj_size = 0
+        this.lcdc_3_tilemap = 0
+        this.lcdc_4_tileset = 0
+        this.lcdc_5_win_enable = 0
+        this.lcdc_6_win_tilemap = 0
+        this.lcdc_7_enable = 0
+        // STAT REG
+        this.stat_01_mode = 0
+        this.stat_2_lyc_ly = 0
+        this.stat_3_hb_int = 0
+        this.stat_4_vb_int = 0
+        this.stat_5_oam_int = 0
+        this.stat_6_lyc_int = 0
+        // regs
+        this.reg = {}
+        this.reg.scy = 0
+        this.reg.scx = 0
+        this.reg.ly = 0
+        this.reg.lyc = 0
+        this.reg.wy = 0
+        this.reg.wx = 0
+        this.reg.bg_palette = 0
+        this.reg.obj_palette0 = 0
+        this.reg.obj_palette1 = 0
+        //
+        this.modeclocks = 0
+        this.linemode = 2
+        this.palette = { 'bg': [], 'obj0': [], 'obj1': [] }
+        for (let i = 0; i < 4; i++) {
+            this.palette.bg[i] = [0, 0, 0, 255];
+            this.palette.obj0[i] = [0, 0, 0, 255];
+            this.palette.obj1[i] = [0, 0, 0, 255];
+        }
+        this.vram = []
+        this.oam = []
         for (let i = 0; i < 8192; i++) {
             this.vram[i] = 0;
         }
         for (let i = 0; i < 160; i++) {
             this.oam[i] = 0;
         }
-        for (let i = 0; i < 4; i++) {
-            this.palette.bg[i] = 255;
-            this.palette.obj0[i] = 255;
-            this.palette.obj1[i] = 255;
-        }
-        for (let i = 0; i < 512; i++) {
-            this.tilemap[i] = [];
-            for (let j = 0; j < 8; j++) {
-                this.tilemap[i][j] = [];
-                for (let k = 0; k < 8; k++) {
-                    this.tilemap[i][j][k] = 0;
-                }
-            }
-        }
 
-        var c = document.getElementById('screen');
+    }
+
+    connect_mmu (mmu) {
+        this.MMU = mmu
+    }
+
+    connect_canvas (c) {
         if (c && c.getContext) {
             this.canvas = c.getContext('2d');
             if (!this.canvas) {
@@ -71,329 +76,218 @@ class GPU {
                     this.scrn = this.canvas.getImageData(0, 0, 160, 144);
                 else
                     this.scrn = { 'width': 160, 'height': 144, 'data': new Array(160 * 144 * 4) };
-
                 for (let i = 0; i < this.scrn.data.length; i++)
                     this.scrn.data[i] = 255;
-
                 this.canvas.putImageData(this.scrn, 0, 0);
             }
         }
-
-        this.curline = 0;
-        this.curscan = 0;
-        this.linemode = 2;
-        this.modeclocks = 0;
-        this.yscrl = 0;
-        this.xscrl = 0;
-        this.raster = 0;
-        this.ints = 0;
-
-        this.lcdon = 0;
-        this.bgon = 0;
-        this.objon = 0;
-        this.winon = 0;
-
-        this.objsize = 0;
-        for (let i = 0; i < 160; i++) this.scanrow[i] = 0;
-
-        for (let i = 0; i < 40; i++) {
-            this.objdata[i] = { 'y': -16, 'x': -8, 'tile': 0, 'palette': 0, 'yflip': 0, 'xflip': 0, 'prio': 0, 'num': i };
-        }
-
-        // Set to values expected by BIOS, to start
-        this.bgtilebase = 0x0000;
-        this.bgmapbase = 0x1800;
-        this.wintilebase = 0x1800;
     }
 
-    checkline (m) {
+    render_bg () {
+
+    }
+
+    update_tileset () {
+
+    }
+
+    update_tilemap () {
+
+    }
+
+    step (m) {
         this.modeclocks += m;
         switch (this.linemode) {
-            // In hblank
-            case 0:
+            case 0: // In hblank
                 if (this.modeclocks >= 51) {
                     // End of hblank for last scanline; render screen
-                    if (this.curline == 143) {
+                    if (this.reg.ly == 143) {
                         this.linemode = 1;
-                        // console.log("render", this.scrn)
+                        // console.log("render")
+                        if (this.lcdc_7_enable) {
+                            if (this.lcdc_0_bg_disp) {
+                                let tileset = (this.lcdc_4_tileset) ? this.vram.slice(0x0000, 0x1000) : this.vram.slice(0x0800, 0x1800)
+                                let tilemap = (this.lcdc_3_tilemap) ? this.vram.slice(0x1c00, 0x2000) : this.vram.slice(0x1800, 0x1c00)
+                                let pixels = tilemap.map( // shape 1024
+                                    i => (this.lcdc_4_tileset) ?
+                                        tileset.slice(i << 4, (i << 4) + 0x10) :
+                                        tileset.slice(((i + 0x80) & 0xff) << 4, (((i + 0x80) & 0xff) << 4) + 0x10)
+                                ).map(b => { // shape 1024, 16
+                                    let pix = []
+                                    for (let i = 0; i < 16; i += 2) {
+                                        for (let j = 7; j >= 0; j--) {
+                                            let l = (b[i] >> j) & 0b1
+                                            let u = (b[i + 1] >> j) & 0b1
+                                            pix.push((u << 1) + l)
+                                        }
+                                    }
+                                    return pix
+                                }) // shape 1024, 64
+                                let pix_crop = []
+                                for (let i = this.reg.scy; i < (this.reg.scy + 144); i++) {
+                                    for (let j = this.reg.scx; j < (this.reg.scx + 160); j++) {
+                                        let x = j
+                                        let y = i
+                                        if (x > 255) x -= 256
+                                        if (y > 255) y -= 256
+                                        pix_crop.push(pixels[Math.floor(y / 8) * 32 + Math.floor(x / 8)][(y % 8) * 8 + (x % 8)])
+                                    }
+                                }
+                                // console.log(pix_crop)
+                                pix_crop = pix_crop.map(p => this.palette.bg[p]).flat()
+                                // console.log('dd', pix_crop.length)
+
+                                for (let i = 0; i < this.scrn.data.length; i++)
+                                    this.scrn.data[i] = pix_crop[i];
+                            }
+                        }
                         this.canvas.putImageData(this.scrn, 0, 0);
                         this.MMU.if |= 1;
                     }
                     else {
                         this.linemode = 2;
                     }
-                    this.curline++;
-                    this.curscan += 640;
-                    this.modeclocks = 0;
+                    this.reg.ly++;
+                    this.modeclocks -= 51;
                 }
                 break;
-
-            // In vblank
-            case 1:
+            case 1: // In vblank
                 if (this.modeclocks >= 114) {
-                    this.modeclocks = 0;
-                    this.curline++;
-                    if (this.curline > 153) {
-                        this.curline = 0;
-                        this.curscan = 0;
+                    this.modeclocks -= 114;
+                    this.reg.ly++;
+                    if (this.reg.ly > 153) {
+                        this.reg.ly = 0;
                         this.linemode = 2;
                     }
                 }
                 break;
-
-            // In OAM-read mode
-            case 2:
+            case 2: // In OAM-read mode
                 if (this.modeclocks >= 20) {
-                    this.modeclocks = 0;
+                    this.modeclocks -= 20;
                     this.linemode = 3;
                 }
                 break;
-
-            // In VRAM-read mode
-            case 3:
+            case 3:  // In VRAM-read mode
                 // Render scanline at end of allotted time
                 if (this.modeclocks >= 43) {
-                    this.modeclocks = 0;
+                    this.modeclocks -= 43;
                     this.linemode = 0;
-                    if (this.lcdon) {
-                        if (this.bgon) {
-                            var linebase = this.curscan;
-                            var mapbase = this.bgmapbase + ((((this.curline + this.yscrl) & 255) >> 3) << 5);
-                            var y = (this.curline + this.yscrl) & 7;
-                            var x = this.xscrl & 7;
-                            var t = (this.xscrl >> 3) & 31;
-                            var w = 160;
-
-                            if (this.bgtilebase) {
-                                var tile = this.vram[mapbase + t];
-                                if (tile < 128) tile = 256 + tile;
-                                let tilerow = this.tilemap[tile][y];
-                                do {
-                                    this.scanrow[160 - x] = tilerow[x];
-                                    this.scrn.data[linebase + 3] = this.palette.bg[tilerow[x]];
-                                    // if (this.palette.bg[tilerow[x]] != 255)
-                                    // console.log(this.palette.bg[tilerow[x]])
-                                    x++;
-                                    if (x == 8) { t = (t + 1) & 31; x = 0; tile = this.vram[mapbase + t]; if (tile < 128) tile = 256 + tile; tilerow = this.tilemap[tile][y]; }
-                                    linebase += 4;
-                                } while (--w);
-                            }
-                            else {
-                                let tilerow = this.tilemap[this.vram[mapbase + t]][y];
-                                do {
-                                    this.scanrow[160 - x] = tilerow[x];
-                                    this.scrn.data[linebase + 3] = this.palette.bg[tilerow[x]];
-                                    // if (this.palette.bg[tilerow[x]] == 96)
-                                    //     console.log(this.palette.bg[tilerow[x]])
-                                    x++;
-                                    if (x == 8) { t = (t + 1) & 31; x = 0; tilerow = this.tilemap[this.vram[mapbase + t]][y]; }
-                                    linebase += 4;
-                                } while (--w);
-                            }
-                        }
-                        if (this.objon) {
-                            var cnt = 0;
-                            if (this.objsize) {
-                                // for (var i = 0; i < 40; i++) {
-                                // }
-                            }
-                            else {
-                                var tilerow;
-                                var obj;
-                                var pal;
-                                let x;
-                                let linebase = this.curscan;
-                                for (let i = 0; i < 40; i++) {
-                                    obj = this.objdatasorted[i];
-                                    if (obj.y <= this.curline && (obj.y + 8) > this.curline) {
-                                        if (obj.yflip)
-                                            tilerow = this.tilemap[obj.tile][7 - (this.curline - obj.y)];
-                                        else
-                                            tilerow = this.tilemap[obj.tile][this.curline - obj.y];
-
-                                        if (obj.palette) pal = this.palette.obj1;
-                                        else pal = this.palette.obj0;
-
-                                        linebase = (this.curline * 160 + obj.x) * 4;
-                                        if (obj.xflip) {
-                                            for (x = 0; x < 8; x++) {
-                                                if (obj.x + x >= 0 && obj.x + x < 160) {
-                                                    if (tilerow[7 - x] && (obj.prio || !this.scanrow[x])) {
-                                                        this.scrn.data[linebase + 3] = pal[tilerow[7 - x]];
-                                                    }
-                                                }
-                                                linebase += 4;
-                                            }
-                                        }
-                                        else {
-                                            for (x = 0; x < 8; x++) {
-                                                if (obj.x + x >= 0 && obj.x + x < 160) {
-                                                    if (tilerow[x] && (obj.prio || !this.scanrow[x])) {
-                                                        this.scrn.data[linebase + 3] = pal[tilerow[x]];
-                                                    }
-                                                }
-                                                linebase += 4;
-                                            }
-                                        }
-                                        cnt++; if (cnt > 10) break;
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
-                break;
         }
-    }
-
-    updatetile (addr) {
-        // console.log('updatetile')
-        var saddr = addr;
-        if (addr & 1) { saddr--; addr--; }
-        var tile = (addr >> 4) & 511;
-        var y = (addr >> 1) & 7;
-        var sx;
-        for (var x = 0; x < 8; x++) {
-            sx = 1 << (7 - x);
-            this.tilemap[tile][y][x] = ((this.vram[saddr] & sx) ? 1 : 0) | ((this.vram[saddr + 1] & sx) ? 2 : 0);
-        }
-    }
-
-    updateoam (addr, val) {
-        // console.log(addr.toString('16'))
-        addr -= 0xFE00;
-        var obj = addr >> 2;
-        if (obj < 40) {
-            // console.log(obj,this.objdata[obj])
-            switch (addr & 3) {
-                case 0: this.objdata[obj].y = val - 16; break;
-                case 1: this.objdata[obj].x = val - 8; break;
-                case 2:
-                    if (this.objsize) this.objdata[obj].tile = (val & 0xFE);
-                    else this.objdata[obj].tile = val;
-                    break;
-                case 3:
-                    this.objdata[obj].palette = (val & 0x10) ? 1 : 0;
-                    this.objdata[obj].xflip = (val & 0x20) ? 1 : 0;
-                    this.objdata[obj].yflip = (val & 0x40) ? 1 : 0;
-                    this.objdata[obj].prio = (val & 0x80) ? 1 : 0;
-                    break;
-            }
-        }
-        this.objdatasorted = this.objdata;
-        this.objdatasorted.sort(function (a, b) {
-            if (a.x > b.x) return -1;
-            if (a.num > b.num) return -1;
-        });
     }
 
     rb (addr) {
-        var gaddr = addr - 0xFF40;
-        switch (gaddr) {
+        // 0xff4x
+        switch (addr & 0xf) {
             case 0:
-                return (this.lcdon ? 0x80 : 0) |
-                    ((this.bgtilebase == 0x0000) ? 0x10 : 0) |
-                    ((this.bgmapbase == 0x1C00) ? 0x08 : 0) |
-                    (this.objsize ? 0x04 : 0) |
-                    (this.objon ? 0x02 : 0) |
-                    (this.bgon ? 0x01 : 0);
-
+                return (this.lcdc_7_enable << 7) + (this.lcdc_6_win_tilemap << 6) + (this.lcdc_5_win_enable << 5) + (this.lcdc_4_tileset << 4)
+                    + (this.lcdc_3_tilemap << 3) + (this.lcdc_2_obj_size << 2) + (this.lcdc_1_obj_enable << 1) + this.lcdc_0_bg_disp
             case 1:
-                return (this.curline == this.raster ? 4 : 0) | this.linemode;
-
+                return (this.stat_6_lyc_int << 6) + (this.stat_5_oam_int << 5) + (this.stat_4_vb_int << 4)
+                    + (this.stat_3_hb_int << 3) + (this.stat_2_lyc_ly << 2) + this.stat_01_mode
             case 2:
-                return this.yscrl;
-
+                return this.reg.scy
             case 3:
-                return this.xscrl;
-
+                return this.reg.scx
             case 4:
-                // console.log("read ly", this.curline)
-                return this.curline;
-
+                return this.reg.ly
             case 5:
-                return this.raster;
-
+                return this.reg.lyc
+            case 7:
+                return this.reg.bg_palette
+            case 8:
+                return this.reg.obj_palette0
+            case 9:
+                return this.reg.obj_palette1
+            case 0xa:
+                return this.reg.wy
+            case 0xb:
+                return this.reg.wx
             default:
-                return this.reg[gaddr];
+                return 0xff
         }
     }
 
     wb (addr, val) {
-        var gaddr = addr - 0xFF40;
-        this.reg[gaddr] = val;
-        switch (gaddr) {
+        // 0xff4x
+        switch (addr & 0xf) {
             case 0:
-                this.lcdon = (val & 0x80) ? 1 : 0;
-                this.bgtilebase = (val & 0x10) ? 0x0000 : 0x0800;
-                this.bgmapbase = (val & 0x08) ? 0x1C00 : 0x1800;
-                this.objsize = (val & 0x04) ? 1 : 0;
-                this.objon = (val & 0x02) ? 1 : 0;
-                this.bgon = (val & 0x01) ? 1 : 0;
-                break;
-
+                this.lcdc_0_bg_disp = (val & 0b1)
+                this.lcdc_1_obj_enable = (val & 0b10) >> 1
+                this.lcdc_2_obj_size = (val & 0b100) >> 2
+                this.lcdc_3_tilemap = (val & 0b1000) >> 3
+                this.lcdc_4_tileset = (val & 0b10000) >> 4
+                this.lcdc_5_win_enable = (val & 0b100000) >> 5
+                this.lcdc_6_win_tilemap = (val & 0b1000000) >> 6
+                this.lcdc_7_enable = (val & 0b10000000) >> 7
+                break
+            case 1:
+                this.stat_3_hb_int = (val & 0b1000) >> 3
+                this.stat_4_vb_int = (val & 0b10000) >> 4
+                this.stat_5_oam_int = (val & 0b100000) >> 5
+                this.stat_6_lyc_int = (val & 0b1000000) >> 6
+                break
             case 2:
-                this.yscrl = val;
-                break;
-
+                this.reg.scy = val;
+                console.log('scy', this.reg.scy)
+                break
             case 3:
-                this.xscrl = val;
-                break;
-
+                this.reg.scx = val;
+                break
+            case 4: // ly
+                if ((this.reg.ly & 0x80) >> 7) { // bit 7 is 1
+                    if ((val & 0x80) >> 7) {
+                        this.lcdc_7_enable = 0
+                        this.reg.ly = 0
+                    }
+                }
+                break
             case 5:
-                this.raster = val;
-                break;
-            // OAM DMA
-            case 6:
+                this.reg.lyc = val;
+                break
+            case 6: // OAM DMA
                 for (let i = 0; i < 160; i++) {
                     let v = this.MMU.rb((val << 8) + i);
                     this.oam[i] = v;
-                    console.log(0xFE00 + i)
-                    this.updateoam(0xFE00 + i, v);
+                    // this.updateoam(0xFE00 + i, v);
                 }
                 break;
-
-            // BG palette mapping
-            case 7:
-                // console.log(this.palette.bg)
-                // for (let i = 0; i < 4; i++) {
-                //     switch ((val >> (i * 2)) & 3) {
-                //         case 0: this.palette.bg[i] = 255; break;
-                //         case 1: this.palette.bg[i] = 192; break;
-                //         case 2: this.palette.bg[i] = 96; break;
-                //         case 3: this.palette.bg[i] = 0; break;
-                //     }
-                // }
-                // console.log(this.palette.bg)
-                this.palette.bg[3] = 200
-                this.palette.bg[2] = 150
-                this.palette.bg[1] = 100
-                this.palette.bg[0] = 50
-                break;
-
-            // OBJ0 palette mapping
-            case 8:
+            case 7: // BG palette mapping
                 for (let i = 0; i < 4; i++) {
                     switch ((val >> (i * 2)) & 3) {
-                        case 0: this.palette.obj0[i] = 255; break;
-                        case 1: this.palette.obj0[i] = 192; break;
-                        case 2: this.palette.obj0[i] = 96; break;
-                        case 3: this.palette.obj0[i] = 0; break;
+                        case 0: this.palette.bg[i] = [255, 255, 255, 0]; break;
+                        case 1: this.palette.bg[i] = [192, 192, 192, 255]; break;
+                        case 2: this.palette.bg[i] = [96, 96, 96, 255]; break;
+                        case 3: this.palette.bg[i] = [0, 0, 0, 255]; break;
                     }
                 }
                 break;
-
-            // OBJ1 palette mapping
-            case 9:
+            case 8: // OBJ0 palette mapping
                 for (let i = 0; i < 4; i++) {
                     switch ((val >> (i * 2)) & 3) {
-                        case 0: this.palette.obj1[i] = 255; break;
-                        case 1: this.palette.obj1[i] = 192; break;
-                        case 2: this.palette.obj1[i] = 96; break;
-                        case 3: this.palette.obj1[i] = 0; break;
+                        case 0: this.palette.obj0[i] = [255, 255, 255, 0]; break;
+                        case 1: this.palette.obj0[i] = [192, 192, 192, 255]; break;
+                        case 2: this.palette.obj0[i] = [96, 96, 96, 255]; break;
+                        case 3: this.palette.obj0[i] = [0, 0, 0, 255]; break;
                     }
                 }
                 break;
+            case 9:  // OBJ1 palette mapping
+                for (let i = 0; i < 4; i++) {
+                    switch ((val >> (i * 2)) & 3) {
+                        case 0: this.palette.obj1[i] = [255, 255, 255, 0]; break;
+                        case 1: this.palette.obj1[i] = [192, 192, 192, 255]; break;
+                        case 2: this.palette.obj1[i] = [96, 96, 96, 255]; break;
+                        case 3: this.palette.obj1[i] = [0, 0, 0, 255]; break;
+                    }
+                }
+                break;
+            case 0xa:
+                this.reg.wy = val
+                break
+            case 0xb:
+                this.reg.wx = val
+                break
         }
     }
 }

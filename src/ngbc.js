@@ -40,6 +40,7 @@ class ngbc {
         // mmu.load('./testROMs/mytest.gb')
         //config GPU
         this.gpu.connect_mmu(this.mmu)
+        this.gpu.reset()
         //config CPU      
         this.cpu.connect_mmu(this.mmu)
         this.cpu.connect_timer(this.timer)

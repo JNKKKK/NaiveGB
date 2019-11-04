@@ -49,7 +49,7 @@ class Timer {
             }
         }
         // gpu checkline
-        this.GPU.checkline(m)
+        this.GPU.step(m)
     }
 
     rb (addr) {
