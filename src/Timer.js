@@ -1,9 +1,6 @@
 class Timer {
     constructor () {
-        this.reg = { divider: 0, counter: 0, modulo: 0, control: 0 }
-        this.div_m = 0
-        this.cnt_m = 0
-        this.total_m = 0
+        this.reset()
     }
 
     reset () {

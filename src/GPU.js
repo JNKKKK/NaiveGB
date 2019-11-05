@@ -1,10 +1,3 @@
-class tile {
-    constructor () {
-
-    }
-}
-
-
 class GPU {
 
     constructor () {
@@ -42,21 +35,20 @@ class GPU {
         //
         this.modeclocks = 0
         this.linemode = 2
-        this.palette = { 'bg': [], 'obj0': [], 'obj1': [] }
-        for (let i = 0; i < 4; i++) {
-            this.palette.bg[i] = [0, 0, 0, 255];
-            this.palette.obj0[i] = [0, 0, 0, 255];
-            this.palette.obj1[i] = [0, 0, 0, 255];
+        this.palette = {
+            'bg': Array(4).fill([0, 0, 0, 255]),
+            'obj0': Array(4).fill([0, 0, 0, 255]),
+            'obj1': Array(4).fill([0, 0, 0, 255])
         }
-        this.vram = []
-        this.oam = []
-        for (let i = 0; i < 8192; i++) {
-            this.vram[i] = 0;
-        }
-        for (let i = 0; i < 160; i++) {
-            this.oam[i] = 0;
-        }
-
+        // vram, oam
+        this.vram = Array(8192).fill(0)
+        this.oam = Array(160).fill(0)
+        // tileset
+        this.tileset = Array(384).fill(Array(64).fill(0))
+        // tilemap
+        this.tilemap = []
+        this.tilemap[0] = Array(1024).fill([0, 0])
+        this.tilemap[1] = Array(1024).fill([0, 0])
     }
 
     connect_mmu (mmu) {
@@ -64,35 +56,54 @@ class GPU {
     }
 
     connect_canvas (c) {
-        if (c && c.getContext) {
+        try {
             this.canvas = c.getContext('2d');
-            if (!this.canvas) {
-                throw new Error('GPU: Canvas context could not be created.');
-            }
-            else {
-                if (this.canvas.createImageData)
-                    this.scrn = this.canvas.createImageData(160, 144);
-                else if (this.canvas.getImageData)
-                    this.scrn = this.canvas.getImageData(0, 0, 160, 144);
-                else
-                    this.scrn = { 'width': 160, 'height': 144, 'data': new Array(160 * 144 * 4) };
-                for (let i = 0; i < this.scrn.data.length; i++)
-                    this.scrn.data[i] = 255;
-                this.canvas.putImageData(this.scrn, 0, 0);
-            }
+            this.scrn = this.canvas.createImageData(160, 144);
+            for (let i = 0; i < this.scrn.data.length; i++)
+                this.scrn.data[i] = 255;
+            this.canvas.putImageData(this.scrn, 0, 0);
+        } catch (error) {
+            console.error(error)
+            console.error('GPU: Canvas context could not be created.')
         }
     }
 
     render_bg () {
-
+        let i = 0
+        for (let a = this.reg.scy; a < (this.reg.scy + 144); a++) {
+            for (let b = this.reg.scx; b < (this.reg.scx + 160); b++) {
+                let x = b
+                let y = a
+                if (x > 255) x -= 256
+                if (y > 255) y -= 256
+                let palette_i = this.tilemap[this.lcdc_3_tilemap][Math.floor(y / 8) * 32 + Math.floor(x / 8)][this.lcdc_4_tileset][(y % 8) * 8 + (x % 8)]
+                for (let rgba of this.palette.bg[palette_i]) {
+                    this.scrn.data[i] = rgba
+                    i += 1
+                }
+            }
+        }
     }
 
-    update_tileset () {
-
+    update_tileset (addr) {
+        let i = Math.floor(addr / 16)
+        this.tileset[i] = []
+        for (let j = 0; j < 16; j += 2) {
+            for (let k = 7; k >= 0; k--) {
+                let l = (this.vram[16 * i + j] >> k) & 0b1
+                let u = (this.vram[16 * i + j + 1] >> k) & 0b1
+                this.tileset[i].push((u << 1) + l)
+            }
+        }
     }
 
-    update_tilemap () {
-
+    update_tilemap (addr) {
+        let tm_i
+        if ((addr >= 0x1800) && (addr <= 0x1bff)) tm_i = 0
+        if ((addr >= 0x1c00) && (addr <= 0x1fff)) tm_i = 1
+        let tile_i_1 = this.vram[addr]
+        let tile_i_0 = 0x80 + ((this.vram[addr] + 0x80) & 0xff)
+        this.tilemap[tm_i][addr - 0x1800 - 0x400 * tm_i] = [this.tileset[tile_i_0], this.tileset[tile_i_1]]
     }
 
     step (m) {
@@ -100,45 +111,12 @@ class GPU {
         switch (this.linemode) {
             case 0: // In hblank
                 if (this.modeclocks >= 51) {
-                    // End of hblank for last scanline; render screen
-                    if (this.reg.ly == 143) {
+                    if (this.reg.ly == 143) { // End of hblank for last scanline; render screen
                         this.linemode = 1;
-                        // console.log("render")
+                        // render
                         if (this.lcdc_7_enable) {
                             if (this.lcdc_0_bg_disp) {
-                                let tileset = (this.lcdc_4_tileset) ? this.vram.slice(0x0000, 0x1000) : this.vram.slice(0x0800, 0x1800)
-                                let tilemap = (this.lcdc_3_tilemap) ? this.vram.slice(0x1c00, 0x2000) : this.vram.slice(0x1800, 0x1c00)
-                                let pixels = tilemap.map( // shape 1024
-                                    i => (this.lcdc_4_tileset) ?
-                                        tileset.slice(i << 4, (i << 4) + 0x10) :
-                                        tileset.slice(((i + 0x80) & 0xff) << 4, (((i + 0x80) & 0xff) << 4) + 0x10)
-                                ).map(b => { // shape 1024, 16
-                                    let pix = []
-                                    for (let i = 0; i < 16; i += 2) {
-                                        for (let j = 7; j >= 0; j--) {
-                                            let l = (b[i] >> j) & 0b1
-                                            let u = (b[i + 1] >> j) & 0b1
-                                            pix.push((u << 1) + l)
-                                        }
-                                    }
-                                    return pix
-                                }) // shape 1024, 64
-                                let pix_crop = []
-                                for (let i = this.reg.scy; i < (this.reg.scy + 144); i++) {
-                                    for (let j = this.reg.scx; j < (this.reg.scx + 160); j++) {
-                                        let x = j
-                                        let y = i
-                                        if (x > 255) x -= 256
-                                        if (y > 255) y -= 256
-                                        pix_crop.push(pixels[Math.floor(y / 8) * 32 + Math.floor(x / 8)][(y % 8) * 8 + (x % 8)])
-                                    }
-                                }
-                                // console.log(pix_crop)
-                                pix_crop = pix_crop.map(p => this.palette.bg[p]).flat()
-                                // console.log('dd', pix_crop.length)
-
-                                for (let i = 0; i < this.scrn.data.length; i++)
-                                    this.scrn.data[i] = pix_crop[i];
+                                this.render_bg()
                             }
                         }
                         this.canvas.putImageData(this.scrn, 0, 0);
@@ -168,7 +146,6 @@ class GPU {
                 }
                 break;
             case 3:  // In VRAM-read mode
-                // Render scanline at end of allotted time
                 if (this.modeclocks >= 43) {
                     this.modeclocks -= 43;
                     this.linemode = 0;
@@ -229,7 +206,7 @@ class GPU {
                 break
             case 2:
                 this.reg.scy = val;
-                console.log('scy', this.reg.scy)
+                // console.log('scy', this.reg.scy)
                 break
             case 3:
                 this.reg.scx = val;

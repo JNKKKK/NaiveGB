@@ -18,20 +18,8 @@ class MMU {
             0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
-        this.rom = 'initrom'
-        this.carttype = 0
-        this.mbc = [
-            {},
-            { rombank: 0, rambank: 0, ramon: 0, mode: 0 }
-        ]
-        this.romoffs = 0x4000
-        this.ramoffs = 0
-        this.eram = []
-        this.wram = []
-        this.zram = []
-        this.inbios = 1
-        this.ie = 0
-        this.if = 0
+        this.rom = ''
+        this.reset()
     }
 
     connect_timer (timer) {
@@ -45,16 +33,16 @@ class MMU {
     connect_cpu (cpu) {
         this.CPU = cpu
     }
+    
     reset () {
-        for (let i = 0; i < 8192; i++) this.wram[i] = 0
-        for (let i = 0; i < 32768; i++) this.eram[i] = 0
-        for (let i = 0; i < 127; i++) this.zram[i] = 0
+        this.wram = Array(8192).fill(0)
+        this.eram = Array(32768).fill(0)
+        this.zram = Array(128).fill(0)
         this.inbios = 1
         this.ie = 0
         this.if = 0
         this.carttype = 0
-        this.mbc[0] = {}
-        this.mbc[1] = { rombank: 0, rambank: 0, ramon: 0, mode: 0 }
+        this.mbc = [{}, { rombank: 0, rambank: 0, ramon: 0, mode: 0 }]
         this.romoffs = 0x4000
         this.ramoffs = 0
     }
@@ -226,6 +214,12 @@ class MMU {
             // VRAM
             case 0x8000: case 0x9000:
                 this.GPU.vram[addr & 0x1FFF] = val;
+                if ((addr >= 0x8000) && (addr <= 0x97ff)) {
+                    this.GPU.update_tileset(addr & 0x1FFF)
+                }
+                if ((addr >= 0x9800) && (addr <= 0x9fff)) {
+                    this.GPU.update_tilemap(addr & 0x1FFF)
+                }
                 break
 
             // External RAM

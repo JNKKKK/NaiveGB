@@ -6,7 +6,6 @@ class CPU {
             m: 0, t: 0,
             ime: 0
         }
-        this.clock = { m: 0, t: 0 }
         this.halt = 0
         this.stop = 0
         //Make instruction table
@@ -1248,7 +1247,7 @@ class CPU {
         this.instructions[0xcb] = () => {
             this.reg.pc += 1
             this.instructions[0x100 + this.MMU.rb(this.reg.pc)]();
-            this.clock.m + 1
+            // this.timer.step(1)
         }
     }
 
@@ -1258,8 +1257,6 @@ class CPU {
         }
         this.halt = 0
         this.stop = 0
-        this.clock.m = 0
-        this.clock.t = 0
         this.reg.ime = 1
     }
 
