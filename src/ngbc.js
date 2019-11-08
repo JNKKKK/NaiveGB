@@ -2,6 +2,7 @@ import CPU from './CPU'
 import MMU from './MMU'
 import TIMER from './Timer'
 import GPU from './GPU'
+import JOYPAD from './Joypad'
 
 class ngbc {
 
@@ -11,6 +12,7 @@ class ngbc {
         this.gpu = new GPU()
         this.mmu = new MMU()
         this.cpu = new CPU()
+        this.joypad = new JOYPAD()
         // config timer
         this.timer.connect_mmu(this.mmu)
         this.timer.connect_gpu(this.gpu)
@@ -18,6 +20,7 @@ class ngbc {
         this.mmu.connect_timer(this.timer)
         this.mmu.connect_gpu(this.gpu)
         this.mmu.connect_cpu(this.cpu)
+        this.mmu.connect_joypad(this.joypad)
         this.mmu.reset()
 
         // mmu.load('./testROMs/instr_timing.gb')
@@ -44,7 +47,7 @@ class ngbc {
         //config CPU      
         this.cpu.connect_mmu(this.mmu)
         this.cpu.connect_timer(this.timer)
-        this.cpu.reset()
+        // this.cpu.reset()
         // this.cpu.skip_bios()
     }
 

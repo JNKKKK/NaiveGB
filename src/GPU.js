@@ -6,49 +6,67 @@ class GPU {
 
     reset () {
         // LCDC reg
-        this.lcdc_0_bg_disp = 0
-        this.lcdc_1_obj_enable = 0
-        this.lcdc_2_obj_size = 0
-        this.lcdc_3_tilemap = 0
-        this.lcdc_4_tileset = 0
-        this.lcdc_5_win_enable = 0
-        this.lcdc_6_win_tilemap = 0
-        this.lcdc_7_enable = 0
+        this.lcdc_0_bg_disp = 0     // (0=Off, 1=On)
+        this.lcdc_1_obj_enable = 0  // (0=Off, 1=On)
+        this.lcdc_2_obj_size = 0    // (0=8x8, 1=8x16)
+        this.lcdc_3_tilemap = 0     // (0=9800-9BFF, 1=9C00-9FFF)
+        this.lcdc_4_tileset = 0     // (0=8800-97FF, 1=8000-8FFF)
+        this.lcdc_5_win_enable = 0  // (0=Off, 1=On)
+        this.lcdc_6_win_tilemap = 0 // (0=9800-9BFF, 1=9C00-9FFF)
+        this.lcdc_7_enable = 0      // (0=Off, 1=On)
         // STAT REG
-        this.stat_01_mode = 0
-        this.stat_2_lyc_ly = 0
-        this.stat_3_hb_int = 0
-        this.stat_4_vb_int = 0
-        this.stat_5_oam_int = 0
-        this.stat_6_lyc_int = 0
+        this.stat_01_mode = 2   // (Read Only)
+        this.stat_2_lyc_ly = 0  // (0:LYC<>LY, 1:LYC=LY) (Read Only)
+        this.stat_3_hb_int = 0  // (1=Enable) (Read/Write)
+        this.stat_4_vb_int = 0  // (1=Enable) (Read/Write)
+        this.stat_5_oam_int = 0 // (1=Enable) (Read/Write)
+        this.stat_6_lyc_int = 0 // (1=Enable) (Read/Write)
         // regs
         this.reg = {}
-        this.reg.scy = 0
-        this.reg.scx = 0
-        this.reg.ly = 0
-        this.reg.lyc = 0
-        this.reg.wy = 0
-        this.reg.wx = 0
-        this.reg.bg_palette = 0
-        this.reg.obj_palette0 = 0
-        this.reg.obj_palette1 = 0
+        this.reg.scy = 0    // (R/W)
+        this.reg.scx = 0    // (R/W)
+        this.reg.ly = 0     // (R)
+        this.reg.lyc = 0    // (R/W)
+        this.reg.wy = 0     // (R/W)
+        this.reg.wx = 0     // (R/W)
+        this.reg.bg_palette = 0     // (R/W)
+        this.reg.obj_palette0 = 0   // (R/W)
+        this.reg.obj_palette1 = 0   // (R/W)
         //
         this.modeclocks = 0
-        this.linemode = 2
         this.palette = {
-            'bg': Array(4).fill([0, 0, 0, 255]),
-            'obj0': Array(4).fill([0, 0, 0, 255]),
-            'obj1': Array(4).fill([0, 0, 0, 255])
+            'bg': Array(4).fill(0).map(() => [0, 0, 0, 255]),
+            'obj': [
+                Array(4).fill(0).map(() => [0, 0, 0, 255]),
+                Array(4).fill(0).map(() => [0, 0, 0, 255])
+            ]
         }
-        // vram, oam
+        // vram, oam  RAW memory
         this.vram = Array(8192).fill(0)
         this.oam = Array(160).fill(0)
         // tileset
-        this.tileset = Array(384).fill(Array(64).fill(0))
+        this.tileset = Array(384).fill(0).map(() => Array(64).fill(0))
         // tilemap
         this.tilemap = []
-        this.tilemap[0] = Array(1024).fill([0, 0])
-        this.tilemap[1] = Array(1024).fill([0, 0])
+        this.tilemap[0] = Array(1024).fill(0).map(() => [0, 0])
+        this.tilemap[1] = Array(1024).fill(0).map(() => [0, 0])
+        // sprite
+        this.sprite = Array(40).fill(0).map(() => {
+            return {
+                y: 0,
+                x: 0,
+                pix_u: this.tileset[0],
+                pix_l: this.tileset[0],
+                x_flip: 0,      // (0=Normal, 1=Horizontally mirrored)
+                y_flip: 0,      // (0=Normal, 1=Vertically mirrored)
+                priority_bg: 0, // (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
+                palette: 0,     // (0=OBP0, 1=OBP1)
+                i: 0
+            }
+        })
+        this.sprite.forEach((s, i) => s.i = i)
+        this.sprite_sorted = []
+        this.bg_alpha_map = []
     }
 
     connect_mmu (mmu) {
@@ -70,6 +88,7 @@ class GPU {
 
     render_bg () {
         let i = 0
+        this.bg_alpha_map = []
         for (let a = this.reg.scy; a < (this.reg.scy + 144); a++) {
             for (let b = this.reg.scx; b < (this.reg.scx + 160); b++) {
                 let x = b
@@ -81,8 +100,42 @@ class GPU {
                     this.scrn.data[i] = rgba
                     i += 1
                 }
+                if (this.palette.bg[palette_i][3] == 255)
+                    this.bg_alpha_map.push(1) // alpha
+                else
+                    this.bg_alpha_map.push(0) // not alpha
             }
         }
+    }
+
+    render_sprite () {
+        let tmp = this.sprite_sorted.filter( // filter sprite out of screen
+            s => this.lcdc_2_obj_size ?
+                (s.x > 0) && (s.x < 168) && (s.y > 0) && (s.y < 160) :
+                (s.x > 0) && (s.x < 168) && (s.y > 8) && (s.y < 160)
+        )
+        // console.log(tmp)
+        tmp.forEach(s => {
+            if (this.lcdc_2_obj_size == 0) { // 8x8 sprite
+                s.pix_u.forEach((c, i) => {
+                    let x = i % 8 + s.x - 8
+                    let y = Math.floor(i / 8) + s.y - 16
+                    if ((x >= 0) && (x <= 160) && (y >= 0) && (y <= 144)) { // in screen
+                        if (s.priority_bg) { // behind bg
+                            if (this.bg_alpha_map[y * 160 + x]) {
+                                for (let pi of [0, 1, 2, 3]) {
+                                    this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                                }
+                            }
+                        } else { // above bg
+                            for (let pi of [0, 1, 2, 3]) {
+                                this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                            }
+                        }
+                    }
+                })
+            }
+        })
     }
 
     update_tileset (addr) {
@@ -106,26 +159,76 @@ class GPU {
         this.tilemap[tm_i][addr - 0x1800 - 0x400 * tm_i] = [this.tileset[tile_i_0], this.tileset[tile_i_1]]
     }
 
+    update_oam (addr) {
+        let i = Math.floor(addr / 4)
+        // Byte0 - Y Position
+        this.sprite[i].y = this.oam[i * 4]
+        // Byte1 - X Position
+        this.sprite[i].x = this.oam[i * 4 + 1]
+        // Byte2 - Tile/Pattern Number
+        if (this.lcdc_2_obj_size) {
+            this.sprite[i].pix_u = this.tileset[this.oam[i * 4 + 2] & 0xfe]
+            this.sprite[i].pix_l = this.tileset[(this.oam[i * 4 + 2] & 0xff) | 0b1]
+        }
+        else {
+            this.sprite[i].pix_u = this.tileset[this.oam[i * 4 + 2] & 0xff]
+        }
+        // Byte3 - Attributes/Flags:
+        let attr = this.oam[i * 4 + 3]
+        this.sprite[i].palette = (attr >> 4) & 0b1
+        this.sprite[i].x_flip = (attr >> 5) & 0b1
+        this.sprite[i].y_flip = (attr >> 6) & 0b1
+        this.sprite[i].priority_bg = (attr >> 7) & 0b1
+        // Sort
+        this.sprite_sorted = Array.from(this.sprite)
+        this.sprite_sorted.sort((a, b) => {
+            if (a.x != b.x) {
+                return (b.x - a.x)
+            } else {
+                return (b.i - a.i)
+            }
+        })
+    }
+
+    check_ly_lyc () {
+        if (this.reg.ly == this.reg.lyc) {
+            this.stat_2_lyc_ly = 1
+            if (this.stat_6_lyc_int)
+                this.MMU.if |= 0b10;
+        } else {
+            this.stat_2_lyc_ly = 0
+        }
+    }
+
+    render () {
+        if (this.lcdc_7_enable) {
+            if (this.lcdc_0_bg_disp) {
+                this.render_bg()
+            }
+            if (this.lcdc_1_obj_enable) {
+                this.render_sprite()
+            }
+        }
+        this.canvas.putImageData(this.scrn, 0, 0);
+    }
+
     step (m) {
         this.modeclocks += m;
-        switch (this.linemode) {
+        switch (this.stat_01_mode) {
             case 0: // In hblank
                 if (this.modeclocks >= 51) {
                     if (this.reg.ly == 143) { // End of hblank for last scanline; render screen
-                        this.linemode = 1;
-                        // render
-                        if (this.lcdc_7_enable) {
-                            if (this.lcdc_0_bg_disp) {
-                                this.render_bg()
-                            }
-                        }
-                        this.canvas.putImageData(this.scrn, 0, 0);
+                        this.stat_01_mode = 1;
                         this.MMU.if |= 1;
+                        // console.log('vblank int')
+                        // render
+                        this.render()
                     }
                     else {
-                        this.linemode = 2;
+                        this.stat_01_mode = 2;
                     }
                     this.reg.ly++;
+                    this.check_ly_lyc()
                     this.modeclocks -= 51;
                 }
                 break;
@@ -133,22 +236,24 @@ class GPU {
                 if (this.modeclocks >= 114) {
                     this.modeclocks -= 114;
                     this.reg.ly++;
+                    this.check_ly_lyc()
                     if (this.reg.ly > 153) {
                         this.reg.ly = 0;
-                        this.linemode = 2;
+                        this.check_ly_lyc()
+                        this.stat_01_mode = 2;
                     }
                 }
                 break;
             case 2: // In OAM-read mode
                 if (this.modeclocks >= 20) {
                     this.modeclocks -= 20;
-                    this.linemode = 3;
+                    this.stat_01_mode = 3;
                 }
                 break;
             case 3:  // In VRAM-read mode
                 if (this.modeclocks >= 43) {
                     this.modeclocks -= 43;
-                    this.linemode = 0;
+                    this.stat_01_mode = 0;
                 }
         }
     }
@@ -221,15 +326,18 @@ class GPU {
                 break
             case 5:
                 this.reg.lyc = val;
+                this.check_ly_lyc()
                 break
             case 6: // OAM DMA
                 for (let i = 0; i < 160; i++) {
                     let v = this.MMU.rb((val << 8) + i);
                     this.oam[i] = v;
-                    // this.updateoam(0xFE00 + i, v);
+                    this.update_oam(i);
                 }
+                // console.log(this.sprite)
                 break;
             case 7: // BG palette mapping
+                this.reg.bg_palette = val
                 for (let i = 0; i < 4; i++) {
                     switch ((val >> (i * 2)) & 3) {
                         case 0: this.palette.bg[i] = [255, 255, 255, 0]; break;
@@ -240,22 +348,24 @@ class GPU {
                 }
                 break;
             case 8: // OBJ0 palette mapping
+                this.reg.obj_palette0 = val
                 for (let i = 0; i < 4; i++) {
                     switch ((val >> (i * 2)) & 3) {
-                        case 0: this.palette.obj0[i] = [255, 255, 255, 0]; break;
-                        case 1: this.palette.obj0[i] = [192, 192, 192, 255]; break;
-                        case 2: this.palette.obj0[i] = [96, 96, 96, 255]; break;
-                        case 3: this.palette.obj0[i] = [0, 0, 0, 255]; break;
+                        case 0: this.palette.obj[0][i] = [255, 255, 255, 0]; break;
+                        case 1: this.palette.obj[0][i] = [192, 192, 192, 255]; break;
+                        case 2: this.palette.obj[0][i] = [96, 96, 96, 255]; break;
+                        case 3: this.palette.obj[0][i] = [0, 0, 0, 255]; break;
                     }
                 }
                 break;
             case 9:  // OBJ1 palette mapping
+                this.reg.obj_palette1 = val
                 for (let i = 0; i < 4; i++) {
                     switch ((val >> (i * 2)) & 3) {
-                        case 0: this.palette.obj1[i] = [255, 255, 255, 0]; break;
-                        case 1: this.palette.obj1[i] = [192, 192, 192, 255]; break;
-                        case 2: this.palette.obj1[i] = [96, 96, 96, 255]; break;
-                        case 3: this.palette.obj1[i] = [0, 0, 0, 255]; break;
+                        case 0: this.palette.obj[1][i] = [255, 255, 255, 0]; break;
+                        case 1: this.palette.obj[1][i] = [192, 192, 192, 255]; break;
+                        case 2: this.palette.obj[1][i] = [96, 96, 96, 255]; break;
+                        case 3: this.palette.obj[1][i] = [0, 0, 0, 255]; break;
                     }
                 }
                 break;

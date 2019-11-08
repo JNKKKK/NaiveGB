@@ -33,7 +33,11 @@ class MMU {
     connect_cpu (cpu) {
         this.CPU = cpu
     }
-    
+
+    connect_joypad (joypad) {
+        this.joypad = joypad
+    }
+
     reset () {
         this.wram = Array(8192).fill(0)
         this.eram = Array(32768).fill(0)
@@ -134,8 +138,7 @@ class MMU {
                             case 0x00:
                                 switch (addr & 0xF) {
                                     case 0:
-                                        // return KEY.rb();    // JOYP
-                                        return 0 //tmp0
+                                        return this.joypad.rb();    // JOYP
                                     case 4: case 5: case 6: case 7:
                                         return this.timer.rb(addr)
                                     // return 0 //tmp0
@@ -247,6 +250,7 @@ class MMU {
                     case 0xE00:
                         if ((addr & 0xFF) < 0xA0) {
                             this.GPU.oam[addr & 0xFF] = val;
+                            this.GPU.update_oam(addr & 0xFF)
                         }
                         break
 
@@ -260,7 +264,8 @@ class MMU {
                         }
                         else if (addr == 0xff01) {
                             // console.log('MMU: write 0x',val.toString('16'),' to 0xff01')
-                            console.log(String.fromCharCode(val))
+                            console.log(String.fromCharCode(val), '0x', val.toString('16'))
+                            // console.log('pc:',this.CPU.reg.pc.toString('16'))
                             // const process = require('process');
                             // process.stdout.write(String.fromCharCode(val));
                         }
@@ -268,7 +273,7 @@ class MMU {
                             case 0x00:
                                 switch (addr & 0xF) {
                                     case 0:
-                                        // KEY.wb(val); //tmp0
+                                        this.joypad.wb(val); //tmp0
                                         break
                                     case 4: case 5: case 6: case 7:
                                         this.timer.wb(addr, val); //tmp0

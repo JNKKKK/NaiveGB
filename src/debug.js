@@ -8,4 +8,4 @@ function print_regs (cpu) {
 
 }
 
-export {print_regs}
+export { print_regs }

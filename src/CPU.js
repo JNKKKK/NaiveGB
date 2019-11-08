@@ -1,5 +1,8 @@
+import { print_regs } from './debug'
+
 class CPU {
     constructor () {
+        this.trace = []
         this.reg = {
             a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, f: 0,
             sp: 0, pc: 0, i: 0, r: 0,
@@ -1257,7 +1260,8 @@ class CPU {
         }
         this.halt = 0
         this.stop = 0
-        this.reg.ime = 1
+        // this.reg.ime = 1
+        this.reg.ime = 0
     }
 
     connect_mmu (mmu) {
@@ -1287,7 +1291,7 @@ class CPU {
         this.reg.sp -= 2
         this.MMU.ww(this.reg.sp, this.reg.pc)
         this.reg.pc = addr
-        this.reg.pc -= 1
+        // this.reg.pc -= 1
         this.reg.ime = 0
         this.timer.step(4)
     }
@@ -1328,9 +1332,26 @@ class CPU {
             return
         }
         if (this.stop) return
-        this.reg.r = (this.reg.r + 1) & 127
+        // this.reg.r = (this.reg.r + 1) & 127
         // console.log('pc: ', this.reg.pc.toString('16'))
         let instr = this.MMU.rb(this.reg.pc)
+
+        // this.trace.push(this.reg.pc)
+        // if (this.trace.length > 5) this.trace.shift()
+        // if (instr == 0xff)
+        //     console.log('pc: ', this.trace.map(i=>i.toString('16')))
+
+        // if (this.reg.pc == 0x1c1) {
+        //     // console.log('0x1c1')
+        //     console.log('DE = 0x', ((this.reg.d << 8) + this.reg.e).toString('16').padStart(4, '0'))
+        //     console.log('HL = 0x', ((this.reg.h << 8) + this.reg.l).toString('16').padStart(4, '0'))
+
+        // }
+
+        // if (this.reg.pc == 0x1cb) {
+        //     print_regs(this)
+        // }
+
         this.instructions[instr]()
         this.reg.pc += 1
         this.reg.pc &= 0xffff
