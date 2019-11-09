@@ -32,6 +32,7 @@ class Joypad {
             case 32: this.keys[0] &= 0xB; break;
             case 13: this.keys[0] &= 0x7; break;
         }
+        return false
     }
 
     keyup (e) {
@@ -45,6 +46,7 @@ class Joypad {
             case 32: this.keys[0] |= 0x5; break;
             case 13: this.keys[0] |= 0x8; break;
         }
+        return false
     }
 }
 

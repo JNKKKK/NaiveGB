@@ -1,4 +1,4 @@
-import { print_regs } from './debug'
+// import { print_regs } from './debug'
 
 class CPU {
     constructor () {
@@ -1291,7 +1291,6 @@ class CPU {
         this.reg.sp -= 2
         this.MMU.ww(this.reg.sp, this.reg.pc)
         this.reg.pc = addr
-        // this.reg.pc -= 1
         this.reg.ime = 0
         this.timer.step(4)
     }
@@ -1332,7 +1331,6 @@ class CPU {
             return
         }
         if (this.stop) return
-        // this.reg.r = (this.reg.r + 1) & 127
         // console.log('pc: ', this.reg.pc.toString('16'))
         let instr = this.MMU.rb(this.reg.pc)
 

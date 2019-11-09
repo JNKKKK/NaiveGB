@@ -5,13 +5,16 @@
 </head>
 
 <body>
-    <div id="out" style="background: white;">
+    <div style="background: white; text-align: center;">
         <canvas id="screen" width="160" height="144" style="width:320px; height:288px; image-rendering: pixelated;">
         </canvas>
+        <div>
+            <input id="run_button" type="button" value="Run">
+            <input id="reset_button" type="button" value="Reset">
+        </div>
+        <p class="fps"><span id="fps">0</span> fps</p>
     </div>
-    <input id="run_button" type="button" value="Run">
-    <input id="reset_button" type="button" value="Reset">
-    <p class="fps"><span id="fps">0</span> fps</p>
+
 </body>
 
 </html>

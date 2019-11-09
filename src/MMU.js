@@ -264,7 +264,7 @@ class MMU {
                         }
                         else if (addr == 0xff01) {
                             // console.log('MMU: write 0x',val.toString('16'),' to 0xff01')
-                            console.log(String.fromCharCode(val), '0x', val.toString('16'))
+                            // console.log(String.fromCharCode(val), '0x', val.toString('16'))
                             // console.log('pc:',this.CPU.reg.pc.toString('16'))
                             // const process = require('process');
                             // process.stdout.write(String.fromCharCode(val));

@@ -22,33 +22,13 @@ class ngbc {
         this.mmu.connect_cpu(this.cpu)
         this.mmu.connect_joypad(this.joypad)
         this.mmu.reset()
-
-        // mmu.load('./testROMs/instr_timing.gb')
-        // mmu.load('./testROMs/mem_timing.gb')
-        // mmu.load('./testROMs/01-read_timing.gb')
-        // mmu.load('./testROMs/02-write_timing.gb')
-        // mmu.load('./testROMs/03-modify_timing.gb')
-        // this.mmu.load('./testROMs/cpu_instrs.gb')
-        // mmu.load('./testROMs/01-special.gb')
-        // mmu.load('./testROMs/02-interrupts.gb')
-        // mmu.load('./testROMs/03-op sp,hl.gb')
-        // mmu.load('./testROMs/04-op r,imm.gb')
-        // mmu.load('./testROMs/05-op rp.gb')
-        // mmu.load('./testROMs/06-ld r,r.gb')
-        // mmu.load('./testROMs/07-jr,jp,call,ret,rst.gb')
-        // mmu.load('./testROMs/08-misc instrs.gb')
-        // mmu.load('./testROMs/09-op r,r.gb')
-        // mmu.load('./testROMs/10-bit ops.gb')
-        // mmu.load('./testROMs/11-op a,(hl).gb')
-        // mmu.load('./testROMs/mytest.gb')
         //config GPU
         this.gpu.connect_mmu(this.mmu)
         this.gpu.reset()
         //config CPU      
         this.cpu.connect_mmu(this.mmu)
         this.cpu.connect_timer(this.timer)
-        // this.cpu.reset()
-        // this.cpu.skip_bios()
+        this.cpu.skip_bios()
     }
 
     reset () {
@@ -68,8 +48,10 @@ class ngbc {
                 this.cpu.handle_interrupt()
             } while (this.timer.total_m < 17556)
             this.timer.total_m = 0
-            var t1 = new Date();
-            document.getElementById('fps').innerHTML = Math.round(10000 / (t1 - t0)) / 10;
+            do {
+                var t1 = new Date();
+            } while ((t1 - t0) / 1000 < (1 / 62))
+            document.getElementById('fps').innerHTML = Math.round(1000/(t1 - t0))
         }
         this.run_interval = setInterval(frame, 1)
     }

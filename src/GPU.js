@@ -100,7 +100,7 @@ class GPU {
                     this.scrn.data[i] = rgba
                     i += 1
                 }
-                if (this.palette.bg[palette_i][3] == 255)
+                if (this.palette.bg[palette_i][3] == 0)
                     this.bg_alpha_map.push(1) // alpha
                 else
                     this.bg_alpha_map.push(0) // not alpha
@@ -109,32 +109,49 @@ class GPU {
     }
 
     render_sprite () {
+        function swap (arr, i, j) {
+            let tmp = arr[i]
+            arr[i] = arr[j]
+            arr[j] = tmp
+        }
         let tmp = this.sprite_sorted.filter( // filter sprite out of screen
-            s => this.lcdc_2_obj_size ?
+            s => (this.lcdc_2_obj_size ?
                 (s.x > 0) && (s.x < 168) && (s.y > 0) && (s.y < 160) :
-                (s.x > 0) && (s.x < 168) && (s.y > 8) && (s.y < 160)
+                (s.x > 0) && (s.x < 168) && (s.y > 8) && (s.y < 160))
         )
+        // if (tmp.length > 1)
         // console.log(tmp)
+        // if (this.lcdc_5_win_enable) console.log(this.lcdc_5_win_enable)
+        // console.log(this.stat_3_hb_int, this.stat_4_vb_int, this.stat_5_oam_int, this.stat_6_lyc_int)
         tmp.forEach(s => {
-            if (this.lcdc_2_obj_size == 0) { // 8x8 sprite
-                s.pix_u.forEach((c, i) => {
-                    let x = i % 8 + s.x - 8
-                    let y = Math.floor(i / 8) + s.y - 16
-                    if ((x >= 0) && (x <= 160) && (y >= 0) && (y <= 144)) { // in screen
-                        if (s.priority_bg) { // behind bg
-                            if (this.bg_alpha_map[y * 160 + x]) {
-                                for (let pi of [0, 1, 2, 3]) {
-                                    this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
-                                }
-                            }
-                        } else { // above bg
+            let pix = Array.from(this.lcdc_2_obj_size ? s.pix_u.concat(s.pix_l) : s.pix_u) // 8x16 sprite : 8x8 sprite
+            if (s.x_flip) {
+                for (let y = 0; y < (this.lcdc_2_obj_size ? 16 : 8); y++)
+                    for (let x = 0; x < 4; x++)
+                        swap(pix, y * 8 + x, y * 8 + 7 - x)
+            }
+            if (s.y_flip) {
+                for (let x = 0; x < 8; x++)
+                    for (let y = 0; y < (this.lcdc_2_obj_size ? 8 : 4); y++)
+                        swap(pix, y * 8 + x, ((this.lcdc_2_obj_size ? 16 : 8) - 1 - y) * 8 + x)
+            }
+            pix.forEach((c, i) => {
+                let x = i % 8 + s.x - 8
+                let y = Math.floor(i / 8) + s.y - 16
+                if ((x >= 0) && (x <= 160) && (y >= 0) && (y <= 144)) { // in screen
+                    if (s.priority_bg) { // behind bg
+                        if (this.bg_alpha_map[y * 160 + x]) {
                             for (let pi of [0, 1, 2, 3]) {
-                                this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                                if (c) this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
                             }
                         }
+                    } else { // above bg
+                        for (let pi of [0, 1, 2, 3]) {
+                            if (c) this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                        }
                     }
-                })
-            }
+                }
+            })
         })
     }
 
@@ -193,8 +210,7 @@ class GPU {
     check_ly_lyc () {
         if (this.reg.ly == this.reg.lyc) {
             this.stat_2_lyc_ly = 1
-            if (this.stat_6_lyc_int)
-                this.MMU.if |= 0b10;
+            if (this.stat_6_lyc_int) this.MMU.if |= 0b10
         } else {
             this.stat_2_lyc_ly = 0
         }
@@ -220,12 +236,11 @@ class GPU {
                     if (this.reg.ly == 143) { // End of hblank for last scanline; render screen
                         this.stat_01_mode = 1;
                         this.MMU.if |= 1;
-                        // console.log('vblank int')
-                        // render
+                        if (this.stat_4_vb_int) this.MMU.if |= 0b10
                         this.render()
-                    }
-                    else {
+                    } else {
                         this.stat_01_mode = 2;
+                        if (this.stat_5_oam_int) this.MMU.if |= 0b10
                     }
                     this.reg.ly++;
                     this.check_ly_lyc()
@@ -254,6 +269,7 @@ class GPU {
                 if (this.modeclocks >= 43) {
                     this.modeclocks -= 43;
                     this.stat_01_mode = 0;
+                    if (this.stat_3_hb_int) this.MMU.if |= 0b10
                 }
         }
     }
@@ -302,6 +318,7 @@ class GPU {
                 this.lcdc_5_win_enable = (val & 0b100000) >> 5
                 this.lcdc_6_win_tilemap = (val & 0b1000000) >> 6
                 this.lcdc_7_enable = (val & 0b10000000) >> 7
+                console.log(this.lcdc_5_win_enable)
                 break
             case 1:
                 this.stat_3_hb_int = (val & 0b1000) >> 3
