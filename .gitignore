@@ -1,4 +1,6 @@
 dist
+*.gb
+*.sav
 .cache
 *.widegb/
 # Logs

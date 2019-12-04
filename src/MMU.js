@@ -219,9 +219,13 @@ class MMU {
                 this.GPU.vram[addr & 0x1FFF] = val;
                 if ((addr >= 0x8000) && (addr <= 0x97ff)) {
                     this.GPU.update_tileset(addr & 0x1FFF)
+                    // if (addr >= 0x8800)
+                    //     console.log(addr.toString('16'))
                 }
                 if ((addr >= 0x9800) && (addr <= 0x9fff)) {
                     this.GPU.update_tilemap(addr & 0x1FFF)
+                    // if (addr < 0x9c00)
+                    //     console.log(addr.toString('16'))
                 }
                 break
 

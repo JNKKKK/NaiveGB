@@ -21,10 +21,8 @@ class ngbc {
         this.mmu.connect_gpu(this.gpu)
         this.mmu.connect_cpu(this.cpu)
         this.mmu.connect_joypad(this.joypad)
-        this.mmu.reset()
         //config GPU
         this.gpu.connect_mmu(this.mmu)
-        this.gpu.reset()
         //config CPU      
         this.cpu.connect_mmu(this.mmu)
         this.cpu.connect_timer(this.timer)
@@ -54,6 +52,7 @@ class ngbc {
             document.getElementById('fps').innerHTML = Math.round(1000/(t1 - t0))
         }
         this.run_interval = setInterval(frame, 1)
+        console.log('Run!')
     }
 
 

@@ -29,10 +29,10 @@ class Joypad {
             case 40: this.keys[1] &= 0x7; break;
             case 90: this.keys[0] &= 0xE; break;
             case 88: this.keys[0] &= 0xD; break;
-            case 32: this.keys[0] &= 0xB; break;
-            case 13: this.keys[0] &= 0x7; break;
+            case 32: this.keys[0] &= 0xB; return false
+            case 13: this.keys[0] &= 0x7; return false
         }
-        return false
+        // return false
     }
 
     keyup (e) {
@@ -43,10 +43,10 @@ class Joypad {
             case 40: this.keys[1] |= 0x8; break;
             case 90: this.keys[0] |= 0x1; break;
             case 88: this.keys[0] |= 0x2; break;
-            case 32: this.keys[0] |= 0x5; break;
-            case 13: this.keys[0] |= 0x8; break;
+            case 32: this.keys[0] |= 0x5; return false
+            case 13: this.keys[0] |= 0x8; return false
         }
-        return false
+        // return false
     }
 }
 

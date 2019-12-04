@@ -66,7 +66,8 @@ class GPU {
         })
         this.sprite.forEach((s, i) => s.i = i)
         this.sprite_sorted = []
-        this.bg_alpha_map = []
+        this.bg_alpha_map = Array(160 * 144).fill(0)
+        this.tilemap_index = [[], []]
     }
 
     connect_mmu (mmu) {
@@ -86,38 +87,54 @@ class GPU {
         }
     }
 
-    render_bg () {
+    render_bg (line) {
         let i = 0
-        this.bg_alpha_map = []
-        for (let a = this.reg.scy; a < (this.reg.scy + 144); a++) {
-            for (let b = this.reg.scx; b < (this.reg.scx + 160); b++) {
-                let x = b
-                let y = a
-                if (x > 255) x -= 256
-                if (y > 255) y -= 256
-                let palette_i = this.tilemap[this.lcdc_3_tilemap][Math.floor(y / 8) * 32 + Math.floor(x / 8)][this.lcdc_4_tileset][(y % 8) * 8 + (x % 8)]
-                for (let rgba of this.palette.bg[palette_i]) {
-                    this.scrn.data[i] = rgba
-                    i += 1
-                }
-                if (this.palette.bg[palette_i][3] == 0)
-                    this.bg_alpha_map.push(1) // alpha
-                else
-                    this.bg_alpha_map.push(0) // not alpha
+        let y = this.reg.scy + line
+        for (let b = this.reg.scx; b < (this.reg.scx + 160); b++) {
+            let x = b
+            if (x > 255) x -= 256
+            if (y > 255) y -= 256
+            let palette_i = this.tilemap[this.lcdc_3_tilemap][Math.floor(y / 8) * 32 + Math.floor(x / 8)][this.lcdc_4_tileset][(y % 8) * 8 + (x % 8)]
+            for (let rgba of this.palette.bg[palette_i]) {
+                this.scrn.data[line * 160 * 4 + i] = rgba
+                i += 1
             }
+            if (this.palette.bg[palette_i][3] == 0)
+                this.bg_alpha_map[line * 160 + x] = 1  // alpha
+            else
+                this.bg_alpha_map[line * 160 + x] = 0 // not alpha
         }
     }
 
-    render_sprite () {
+    render_window (line) {
+        if (line < this.reg.wy) return
+        let i = 0
+        let y = line - this.reg.wy
+        for (let x = 0; x < 160 - (this.reg.wx - 7); x++) {
+            let palette_i = this.tilemap[this.lcdc_6_win_tilemap][Math.floor(y / 8) * 32 + Math.floor(x / 8)][this.lcdc_4_tileset][(y % 8) * 8 + (x % 8)]
+            for (let rgba of this.palette.bg[palette_i]) {
+                this.scrn.data[line * 160 * 4 + (this.reg.wx - 7) * 4 + i] = rgba
+                i += 1
+            }
+            if (this.palette.bg[palette_i][3] == 0)
+                this.bg_alpha_map[line * 160 + (this.reg.wx - 7) + x] = 1  // alpha
+            else
+                this.bg_alpha_map[line * 160 + (this.reg.wx - 7) + x] = 0 // not alpha
+        }
+    }
+
+    render_sprite (line) {
         function swap (arr, i, j) {
             let tmp = arr[i]
             arr[i] = arr[j]
             arr[j] = tmp
         }
-        let tmp = this.sprite_sorted.filter( // filter sprite out of screen
+        let tmp = this.sprite_sorted.filter( // filter sprites out of screen
             s => (this.lcdc_2_obj_size ?
                 (s.x > 0) && (s.x < 168) && (s.y > 0) && (s.y < 160) :
                 (s.x > 0) && (s.x < 168) && (s.y > 8) && (s.y < 160))
+        ).filter( // sprites only cover the line
+            s => (line >= s.y - 16) && (line <= s.y - 16 + (this.lcdc_2_obj_size ? 16 : 8))
         )
         // if (tmp.length > 1)
         // console.log(tmp)
@@ -136,34 +153,34 @@ class GPU {
                         swap(pix, y * 8 + x, ((this.lcdc_2_obj_size ? 16 : 8) - 1 - y) * 8 + x)
             }
             pix.forEach((c, i) => {
+                if (!c) return // only render not alpha obj pixels
                 let x = i % 8 + s.x - 8
                 let y = Math.floor(i / 8) + s.y - 16
+                if (y != line) return // only render pixels in the line
                 if ((x >= 0) && (x <= 160) && (y >= 0) && (y <= 144)) { // in screen
                     if (s.priority_bg) { // behind bg
                         if (this.bg_alpha_map[y * 160 + x]) {
                             for (let pi of [0, 1, 2, 3]) {
-                                if (c) this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                                this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
                             }
                         }
                     } else { // above bg
                         for (let pi of [0, 1, 2, 3]) {
-                            if (c) this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
+                            this.scrn.data[(y * 160 + x) * 4 + pi] = this.palette.obj[s.palette][c][pi]
                         }
                     }
                 }
             })
         })
     }
-
+    
     update_tileset (addr) {
         let i = Math.floor(addr / 16)
-        this.tileset[i] = []
-        for (let j = 0; j < 16; j += 2) {
-            for (let k = 7; k >= 0; k--) {
-                let l = (this.vram[16 * i + j] >> k) & 0b1
-                let u = (this.vram[16 * i + j + 1] >> k) & 0b1
-                this.tileset[i].push((u << 1) + l)
-            }
+        let y = Math.floor((addr % 16) / 2)
+        for (let k = 7; k >= 0; k--) {
+            let l = (this.vram[16 * i + y * 2] >> k) & 0b1
+            let u = (this.vram[16 * i + y * 2 + 1] >> k) & 0b1
+            this.tileset[i][y * 8 + 7 - k] = (u << 1) + l
         }
     }
 
@@ -174,6 +191,7 @@ class GPU {
         let tile_i_1 = this.vram[addr]
         let tile_i_0 = 0x80 + ((this.vram[addr] + 0x80) & 0xff)
         this.tilemap[tm_i][addr - 0x1800 - 0x400 * tm_i] = [this.tileset[tile_i_0], this.tileset[tile_i_1]]
+        this.tilemap_index[tm_i][addr - 0x1800 - 0x400 * tm_i] = this.vram[addr]
     }
 
     update_oam (addr) {
@@ -216,19 +234,20 @@ class GPU {
         }
     }
 
-    render () {
+    render (line) {
         if (this.lcdc_7_enable) {
-            if (this.lcdc_0_bg_disp) {
-                this.render_bg()
-            }
-            if (this.lcdc_1_obj_enable) {
-                this.render_sprite()
-            }
+            if (this.lcdc_0_bg_disp) this.render_bg(line)
+            if (this.lcdc_5_win_enable) this.render_window(line)
+            if (this.lcdc_1_obj_enable) this.render_sprite(line)
         }
         this.canvas.putImageData(this.scrn, 0, 0);
     }
 
     step (m) {
+        //   Mode 2  2_____2_____2_____2_____2_____2___________________2____
+        //   Mode 3  _33____33____33____33____33____33__________________3___
+        //   Mode 0  ___000___000___000___000___000___000________________000
+        //   Mode 1  ____________________________________11111111111111_____
         this.modeclocks += m;
         switch (this.stat_01_mode) {
             case 0: // In hblank
@@ -237,7 +256,6 @@ class GPU {
                         this.stat_01_mode = 1;
                         this.MMU.if |= 1;
                         if (this.stat_4_vb_int) this.MMU.if |= 0b10
-                        this.render()
                     } else {
                         this.stat_01_mode = 2;
                         if (this.stat_5_oam_int) this.MMU.if |= 0b10
@@ -270,6 +288,7 @@ class GPU {
                     this.modeclocks -= 43;
                     this.stat_01_mode = 0;
                     if (this.stat_3_hb_int) this.MMU.if |= 0b10
+                    this.render(this.reg.ly)
                 }
         }
     }
@@ -318,7 +337,7 @@ class GPU {
                 this.lcdc_5_win_enable = (val & 0b100000) >> 5
                 this.lcdc_6_win_tilemap = (val & 0b1000000) >> 6
                 this.lcdc_7_enable = (val & 0b10000000) >> 7
-                console.log(this.lcdc_5_win_enable)
+                // console.log(this.lcdc_3_tilemap, this.lcdc_6_win_tilemap)
                 break
             case 1:
                 this.stat_3_hb_int = (val & 0b1000) >> 3
@@ -388,6 +407,8 @@ class GPU {
                 break;
             case 0xa:
                 this.reg.wy = val
+                // console.log('wy:', this.reg.wy)
+                // console.log(this.tilemap_tmp[1])
                 break
             case 0xb:
                 this.reg.wx = val
