@@ -1,18 +1,17 @@
 import ngbc from '../src/ngbc';
-import { print_tilemap } from '../src/debug'
 
 window.onload = function () {
     var emu = new ngbc();
-    emu.gpu.connect_canvas(document.getElementById('screen'))
+    emu.GPU.connect_canvas(document.getElementById('screen'))
     document.getElementById('run_button').onclick = function () {
         emu.run()
     }
     document.getElementById('reset_button').onclick = function () {
         emu.reset()
-        emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/opus5.gb', () => { console.log('rom loaded') })
+        emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/opus5.gb', () => { console.log('rom loaded') })
     }
     document.getElementById('debug_tilemap').onclick = function () {
-        print_tilemap(emu.gpu, 0)
+
     }
     // emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/cpu_instrs.gb', () => { console.log('rom loaded') })
     // emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/Tetris+(World)+(Rev+A).gb',()=>{console.log('rom loaded')})
@@ -24,8 +23,8 @@ window.onload = function () {
     // emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/opus5.gb', () => { console.log('rom loaded') })
     // emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/Super+Mario+Land+(JUE)+(V1.1)+%5B!%5D.gb', () => { console.log('rom loaded') })
     // emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pokemon+Red+(UE)+%5BS%5D%5B!%5D.gb', () => { console.log('rom loaded') })
-    emu.mmu.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pac-Man+(U)+(Namco).gb', () => { console.log('rom loaded') })
+    emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pac-Man+(U)+(Namco).gb', () => { console.log('rom loaded') })
 
-    window.onkeydown = (e) => emu.joypad.keydown(e);
-    window.onkeyup = (e) => emu.joypad.keyup(e);
+    window.onkeydown = (e) => emu.JOYPAD.keydown(e);
+    window.onkeyup = (e) => emu.JOYPAD.keyup(e);
 };

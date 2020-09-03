@@ -1,5 +1,15 @@
+// T-Edge       // A single tick of the Game Boy's clock, from low to high, or high to low - 8,388,608 hz
+// T-Cycle (t)  // Two T-Edges - 4,194,304 hz
+// M-Cycle (m)  // Four T-Cycles - 1,048,576 hz
+
 class Timer {
-    constructor () {
+    constructor (bridge) {
+        this.bridge = bridge
+    }
+
+    init () {
+        this.MMU = this.bridge.MMU
+        this.GPU = this.bridge.GPU
         this.reset()
     }
 
@@ -8,14 +18,6 @@ class Timer {
         this.total_m = 0
         this.div_m = 0
         this.cnt_m = 0
-    }
-
-    connect_mmu (mmu) {
-        this.MMU = mmu
-    }
-
-    connect_gpu (gpu) {
-        this.GPU = gpu
     }
 
     step (m) {

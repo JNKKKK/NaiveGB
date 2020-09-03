@@ -1,6 +1,12 @@
 class GPU {
 
-    constructor () {
+    constructor (bridge) {
+        this.bridge = bridge
+
+    }
+
+    init () {
+        this.MMU = this.bridge.MMU
         this.reset()
     }
 
@@ -68,10 +74,15 @@ class GPU {
         this.sprite_sorted = []
         this.bg_alpha_map = Array(160 * 144).fill(0)
         this.tilemap_index = [[], []]
+        //
+        this.headless = false
     }
 
-    connect_mmu (mmu) {
-        this.MMU = mmu
+    setHeadless () {
+        this.headless = true
+        this.scrn = { data: [] }
+        for (let i = 0; i < 160 * 144 * 4; i++)
+            this.scrn.data[i] = 255;
     }
 
     connect_canvas (c) {
@@ -173,7 +184,7 @@ class GPU {
             })
         })
     }
-    
+
     update_tileset (addr) {
         let i = Math.floor(addr / 16)
         let y = Math.floor((addr % 16) / 2)
@@ -240,14 +251,14 @@ class GPU {
             if (this.lcdc_5_win_enable) this.render_window(line)
             if (this.lcdc_1_obj_enable) this.render_sprite(line)
         }
-        this.canvas.putImageData(this.scrn, 0, 0);
+        if (!this.headless) this.canvas.putImageData(this.scrn, 0, 0);
     }
 
     step (m) {
-        //   Mode 2  2_____2_____2_____2_____2_____2___________________2____
-        //   Mode 3  _33____33____33____33____33____33__________________3___
-        //   Mode 0  ___000___000___000___000___000___000________________000
-        //   Mode 1  ____________________________________11111111111111_____
+        //   Mode 2  2_____2_____2_____2_____2_____2___________________2____    OAM-read mode
+        //   Mode 3  _33____33____33____33____33____33__________________3___    VRAM-read mode
+        //   Mode 0  ___000___000___000___000___000___000________________000    hblank
+        //   Mode 1  ____________________________________11111111111111_____    vblank
         this.modeclocks += m;
         switch (this.stat_01_mode) {
             case 0: // In hblank

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "web": "parcel example/index.html",
+    "headless": "parcel build ./src/headless.js --target node --no-minify && node dist/headless.js"
   },
   "repository": {
     "type": "git",
@@ -17,7 +19,7 @@
   },
   "homepage": "https://github.com/JNKKKK/NaiveGBC#readme",
   "devDependencies": {
-    "eslint": "^6.5.1"
+    "eslint": "^6.8.0"
   },
   "dependencies": {
     "parcel-bundler": "^1.12.4",

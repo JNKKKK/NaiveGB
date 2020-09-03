@@ -1,5 +1,9 @@
 class Joypad {
-    constructor () {
+    constructor (bridge) {
+        this.bridge = bridge
+    }
+
+    init () {
         this.reset()
     }
 

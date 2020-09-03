@@ -1,5 +1,9 @@
 class MMU {
-    constructor () {
+    constructor (bridge) {
+        this.bridge = bridge
+    }
+
+    init () {
         this.bios = [
             0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
             0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
@@ -19,23 +23,11 @@ class MMU {
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
         this.rom = ''
+        this.TIMER = this.bridge.TIMER
+        this.GPU = this.bridge.GPU
+        this.CPU = this.bridge.CPU
+        this.JOYPAD = this.bridge.JOYPAD
         this.reset()
-    }
-
-    connect_timer (timer) {
-        this.timer = timer
-    }
-
-    connect_gpu (gpu) {
-        this.GPU = gpu
-    }
-
-    connect_cpu (cpu) {
-        this.CPU = cpu
-    }
-
-    connect_joypad (joypad) {
-        this.joypad = joypad
     }
 
     reset () {
@@ -73,9 +65,13 @@ class MMU {
     load_rom_localfile (file) {
         let fs = require('fs')
         let b = fs.readFileSync(file, 'binary').toString('binary')
-        this.rom = b
-        this.carttype = this.rom.charCodeAt(0x0147)
-        // console.log('MMU', 'ROM loaded, ' + this.rom.length + ' bytes.')
+        let rom = []
+        for (let i = 0; i < b.length; i++) {
+            rom.push(b.charCodeAt(i) & 0xff)
+        }
+        this.rom = rom
+        this.carttype = this.rom[0x0147]
+        // console.log('MMU', 'ROM loaded, ' + this.rom.length + ' bytes.')       
     }
 
     rb (addr) {
@@ -138,9 +134,9 @@ class MMU {
                             case 0x00:
                                 switch (addr & 0xF) {
                                     case 0:
-                                        return this.joypad.rb();    // JOYP
+                                        return this.JOYPAD.rb();    // JOYP
                                     case 4: case 5: case 6: case 7:
-                                        return this.timer.rb(addr)
+                                        return this.TIMER.rb(addr)
                                     // return 0 //tmp0
                                     case 15: return this.if;    // Interrupt flags
                                     default: return 0
@@ -270,17 +266,17 @@ class MMU {
                             // console.log('MMU: write 0x',val.toString('16'),' to 0xff01')
                             // console.log(String.fromCharCode(val), '0x', val.toString('16'))
                             // console.log('pc:',this.CPU.reg.pc.toString('16'))
-                            // const process = require('process');
-                            // process.stdout.write(String.fromCharCode(val));
+                            const process = require('process');
+                            process.stdout.write(String.fromCharCode(val));
                         }
                         else switch (addr & 0xF0) {
                             case 0x00:
                                 switch (addr & 0xF) {
                                     case 0:
-                                        this.joypad.wb(val); //tmp0
+                                        this.JOYPAD.wb(val); //tmp0
                                         break
                                     case 4: case 5: case 6: case 7:
-                                        this.timer.wb(addr, val); //tmp0
+                                        this.TIMER.wb(addr, val); //tmp0
                                         break
                                     case 15: this.if = val; break
                                 }
