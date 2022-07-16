@@ -27,14 +27,14 @@ class Joypad {
 
     keydown (e) {
         switch (e.keyCode) {
-            case 39: this.keys[1] &= 0xE; break;
-            case 37: this.keys[1] &= 0xD; break;
-            case 38: this.keys[1] &= 0xB; break;
-            case 40: this.keys[1] &= 0x7; break;
-            case 90: this.keys[0] &= 0xE; break;
-            case 88: this.keys[0] &= 0xD; break;
-            case 32: this.keys[0] &= 0xB; return false
-            case 13: this.keys[0] &= 0x7; return false
+            case 39: this.keys[1] &= 0xE; break; // right
+            case 37: this.keys[1] &= 0xD; break; // left
+            case 38: this.keys[1] &= 0xB; break; // up
+            case 40: this.keys[1] &= 0x7; break; // 40
+            case 90: this.keys[0] &= 0xE; break; // z
+            case 88: this.keys[0] &= 0xD; break; // x
+            case 32: this.keys[0] &= 0xB; return false // space
+            case 13: this.keys[0] &= 0x7; return false // enter
         }
         // return false
     }

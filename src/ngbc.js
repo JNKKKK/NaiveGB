@@ -25,7 +25,7 @@ class ngbc {
         this.bridge.register('TIMER',this.TIMER)
         this.bridge.register('GPU',this.GPU)
         this.bridge.register('JOYPAD',this.JOYPAD)
-        this.bridge.register('Debuger',this.debuger)
+        this.bridge.register('debuger',this.debuger)
         // init components
         this.CPU.init()
         this.GPU.init()

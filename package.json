@@ -5,8 +5,17 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "web": "parcel example/index.html",
-    "headless": "parcel build ./src/headless.js --target node --no-minify && node dist/headless.js"
+    "web": "npx parcel example/index.html",
+    "headless": "npx parcel build ./src/headless.js --target node --no-minify && node dist/headless.js"
+  },
+  "targets": {
+    "frontend": {
+      "source": "example/index.html"
+    },
+    "headless": {
+      "source": "src/headless.js",
+      "context": "node"
+    }
   },
   "repository": {
     "type": "git",
@@ -19,10 +28,8 @@
   },
   "homepage": "https://github.com/JNKKKK/NaiveGBC#readme",
   "devDependencies": {
-    "eslint": "^6.8.0"
+    "parcel": "^2.6.2",
+    "process": "^0.11.10"
   },
-  "dependencies": {
-    "parcel-bundler": "^1.12.4",
-    "readline-sync": "^1.4.10"
-  }
+  "dependencies": {}
 }

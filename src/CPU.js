@@ -7,7 +7,7 @@ class CPU {
         this.TIMER = this.bridge.TIMER
         this.MMU = this.bridge.MMU
         this.debuger = this.bridge.debuger
-        this.TRACELOG = false
+        // this.TRACELOG = true
         this.reg = {
             a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, f: 0,
             sp: 0, pc: 0, i: 0, r: 0,
@@ -1377,7 +1377,7 @@ class CPU {
         this.reg.pc = 0x100
         this.MMU.inbios = 0
         this.reg.sp = 0xFFFE
-        this.reg.a = 0x01
+        this.reg.a = 0x11
         this.reg.f = 0xb0
         this.reg.b = 0x00
         this.reg.c = 0x13
@@ -1427,6 +1427,7 @@ class CPU {
     }
 
     exec () {
+        // if (this.TIMER.total_m > 100) return
         if (this.halt) {
             this.TIMER.step(1)
             return
