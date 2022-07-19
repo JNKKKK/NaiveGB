@@ -259,6 +259,12 @@ class GPU {
         //   Mode 3  _33____33____33____33____33____33__________________3___    VRAM-read mode
         //   Mode 0  ___000___000___000___000___000___000________________000    hblank
         //   Mode 1  ____________________________________11111111111111_____    vblank
+        if (!this.lcdc_7_enable) {
+            this.modeclocks = 0;
+            this.stat_01_mode = 2;
+            this.reg.ly = 0;
+            return
+        }
         this.modeclocks += m;
         switch (this.stat_01_mode) {
             case 0: // In hblank

@@ -14,7 +14,12 @@ class Timer {
     }
 
     reset () {
-        this.reg = { divider: 0, counter: 0, modulo: 0, control: 0 }
+        this.reg = {
+            divider: 0, // FF04 - DIV
+            counter: 0, // FF05 - TIMA This timer is incremented by a clock frequency specified by the TAC register
+            modulo: 0, // FF06 - TMA When the TIMA overflows, this data will be loaded.
+            control: 0 // FF07 - TAC
+        }
         this.total_m = 0
         this.div_m = 0
         this.cnt_m = 0

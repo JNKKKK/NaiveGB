@@ -6,6 +6,7 @@ class CPU {
     init () {
         this.TIMER = this.bridge.TIMER
         this.MMU = this.bridge.MMU
+        this.GPU = this.bridge.GPU
         this.debuger = this.bridge.debuger
         // this.TRACELOG = true
         this.reg = {
@@ -53,7 +54,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(r1b << 3) + 0b110] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(1, 'ld', r1, this.MMU.rb(this.reg.pc + 1).toString(16))
+                if (this.TRACELOG) this.debuger.tracelog(1, 'ld', r1, this.MMU.rb(this.reg.pc + 1).toString(10))
                 this.reg.pc += 1
                 this.reg[r1] = this.MMU.rb(this.reg.pc)
                 this.TIMER.step(2)
@@ -133,7 +134,7 @@ class CPU {
         }
         // A <- (nn)
         this.instructions[0b11111010] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(2, 'ldh', 'a', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`)
+            if (this.TRACELOG) this.debuger.tracelog(2, 'ld', 'a', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`)
             this.TIMER.step(3)
             this.reg.pc += 1
             this.reg.a = this.MMU.rb(this.MMU.rw(this.reg.pc))
@@ -142,7 +143,7 @@ class CPU {
         }
         // (nn) <- A
         this.instructions[0b11101010] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(2, 'ldh', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`, 'a')
+            if (this.TRACELOG) this.debuger.tracelog(2, 'ld', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`, 'a')
             this.reg.pc += 1
             this.TIMER.step(3)
             this.MMU.wb(this.MMU.rw(this.reg.pc), this.reg.a)
@@ -221,7 +222,7 @@ class CPU {
         for (let r1 in regddCode) {
             let r1b = regddCode[r1]
             this.instructions[(r1b << 4) + 0b1] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(2, 'ld', r1, `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
+                if (this.TRACELOG) this.debuger.tracelog(2, 'ld', r1, this.MMU.rw(this.reg.pc + 1).toString(10))
                 this.reg.pc += 1
                 this.reg[r1.charAt(1)] = this.MMU.rb(this.reg.pc)
                 this.reg.pc += 1
@@ -231,7 +232,7 @@ class CPU {
         }
         // sp ← nn
         this.instructions[0b110001] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(2, 'ld', 'sp', `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
+            if (this.TRACELOG) this.debuger.tracelog(2, 'ld', 'sp', this.MMU.rw(this.reg.pc + 1).toString(10))
             this.reg.pc += 1
             this.reg.sp = this.MMU.rw(this.reg.pc)
             this.reg.pc += 1
@@ -247,7 +248,7 @@ class CPU {
         for (let r1 in regqqCode) {
             let r1b = regqqCode[r1]
             this.instructions[(0b11 << 6) + (r1b << 4) + 0b101] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'push', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'push', r1)
                 this.reg.sp -= 1
                 this.MMU.wb(this.reg.sp, this.reg[r1.charAt(0)])
                 this.reg.sp -= 1
@@ -259,7 +260,7 @@ class CPU {
         for (let r1 in regqqCode) {
             let r1b = regqqCode[r1]
             this.instructions[(0b11 << 6) + (r1b << 4) + 0b001] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'pop', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'pop', r1)
                 this.reg[r1.charAt(1)] = this.MMU.rb(this.reg.sp)
                 this.reg.sp += 1
                 this.reg[r1.charAt(0)] = this.MMU.rb(this.reg.sp)
@@ -270,7 +271,7 @@ class CPU {
         }
         // HL ← SP+e
         this.instructions[0b11111000] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'ld', 'hl', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'ld', 'hl')
             this.reg.pc += 1
             let e = this.MMU.rb(this.reg.pc)
             if (e > 127) e = -((~e + 1) & 255)
@@ -320,7 +321,7 @@ class CPU {
         }
         // A ← A + n
         this.instructions[0b11000110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'add', 'a', this.MMU.rb(this.reg.pc))
+            if (this.TRACELOG) this.debuger.tracelog(1, 'add', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
@@ -368,7 +369,7 @@ class CPU {
         }
         // A ← A+n+CY
         this.instructions[0b11001110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'adc', 'a', this.MMU.rb(this.reg.pc))
+            if (this.TRACELOG) this.debuger.tracelog(1, 'adc', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
@@ -417,7 +418,7 @@ class CPU {
         }
         // A ← A - n
         this.instructions[0b11010110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'sub', 'a', this.MMU.rb(this.reg.pc))
+            if (this.TRACELOG) this.debuger.tracelog(1, 'sub', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
@@ -465,7 +466,7 @@ class CPU {
         }
         // A ← A-n-CY
         this.instructions[0b11011110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'suc', 'a', this.MMU.rb(this.reg.pc))
+            if (this.TRACELOG) this.debuger.tracelog(1, 'suc', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
@@ -499,7 +500,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b10100 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'and', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'and', 'a', r1)
                 this.reg.a &= this.reg[r1]
                 let z = 0, n = 0, h = 1, c = 0
                 if (this.reg.a == 0) z = 1
@@ -509,7 +510,7 @@ class CPU {
         }
         // A ← A & n
         this.instructions[0b11100110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'and', this.MMU.rb(this.reg.pc), undefined)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'and', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a &= d8
@@ -520,7 +521,7 @@ class CPU {
         }
         // A ← A & (HL)
         this.instructions[0b10100110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'and', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'and', 'a', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a &= d8
@@ -533,7 +534,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b10110 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'or', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'or', 'a', r1)
                 this.reg.a |= this.reg[r1]
                 let z = 0, n = 0, h = 0, c = 0
                 if (this.reg.a == 0) z = 1
@@ -543,7 +544,7 @@ class CPU {
         }
         // A ← A | n
         this.instructions[0b11110110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'or', this.MMU.rb(this.reg.pc), undefined)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'or', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a |= d8
@@ -554,7 +555,7 @@ class CPU {
         }
         // A ← A | (HL)
         this.instructions[0b10110110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'or', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'or', 'a', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a |= d8
@@ -567,7 +568,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b10101 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'xor', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'xor', 'a', r1)
                 this.reg.a ^= this.reg[r1]
                 let z = 0, n = 0, h = 0, c = 0
                 if (this.reg.a == 0) z = 1
@@ -577,7 +578,7 @@ class CPU {
         }
         // A ← A ^ n
         this.instructions[0b11101110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'xor', this.MMU.rb(this.reg.pc), undefined)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'xor', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a ^= d8
@@ -588,7 +589,7 @@ class CPU {
         }
         // A ← A ^ (HL)
         this.instructions[0b10101110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'xor', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'xor', 'a', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             this.reg.a ^= d8
@@ -601,7 +602,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(0b10111 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'cp', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'cp', 'a', r1)
                 let a = this.reg.a
                 a -= this.reg[r1]
                 let z = 0, n = 1, h = 0, c = 0
@@ -615,7 +616,7 @@ class CPU {
         }
         // CP n
         this.instructions[0b11111110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(1, 'cp', this.MMU.rb(this.reg.pc), undefined)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'cp', 'a', this.MMU.rb(this.reg.pc + 1))
             this.reg.pc += 1
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
@@ -630,7 +631,7 @@ class CPU {
         }
         // CP (HL)
         this.instructions[0b10111110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'cp', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'cp', 'a', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = this.reg.a
@@ -647,7 +648,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(r1b << 3) + 0b100] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'inc', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'inc', r1)
                 let a = this.reg[r1]
                 this.reg[r1] += 1
                 this.reg[r1] &= 0xff
@@ -660,7 +661,7 @@ class CPU {
         }
         // inc (HL)
         this.instructions[0b110100] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 + 1
@@ -677,7 +678,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[(r1b << 3) + 0b101] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'dec', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'dec', r1)
                 let a = this.reg[r1]
                 this.reg[r1] -= 1
                 this.reg[r1] &= 0xff
@@ -690,7 +691,7 @@ class CPU {
         }
         // dec (HL)
         this.instructions[0b110101] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'dec', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'dec', '[hl]')
             this.TIMER.step(1)
             let d8 = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let a = d8 - 1
@@ -758,7 +759,7 @@ class CPU {
         for (let r1 in regddCode) {
             let r1b = regddCode[r1]
             this.instructions[(r1b << 4) + 0b0011] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'inc', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'inc', r1)
                 let d16 = (this.reg[r1.charAt(0)] << 8) + this.reg[r1.charAt(1)]
                 d16 += 1
                 d16 &= 0xffff
@@ -769,7 +770,7 @@ class CPU {
         }
         //inc SP
         this.instructions[0b110011] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', 'sp', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', 'sp')
             let d16 = this.reg.sp
             d16 += 1
             d16 &= 0xffff
@@ -780,7 +781,7 @@ class CPU {
         for (let r1 in regddCode) {
             let r1b = regddCode[r1]
             this.instructions[(r1b << 4) + 0b1011] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'dec', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'dec', r1)
                 let d16 = (this.reg[r1.charAt(0)] << 8) + this.reg[r1.charAt(1)]
                 d16 -= 1
                 d16 &= 0xffff
@@ -791,7 +792,7 @@ class CPU {
         }
         //dec SP
         this.instructions[0b111011] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', 'sp', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'inc', 'sp')
             let d16 = this.reg.sp
             d16 -= 1
             d16 &= 0xffff
@@ -805,7 +806,7 @@ class CPU {
 
         //RLCA
         this.instructions[0b111] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rcla', undefined, undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rcla', undefined)
             let b7 = this.reg.a & 0x80 ? 1 : 0
             this.reg.f = b7 << 4
             this.reg.a = (this.reg.a << 1) + b7
@@ -814,7 +815,7 @@ class CPU {
         }
         //RLA
         this.instructions[0b10111] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rla', undefined, undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rla', undefined)
             let b7 = this.reg.a & 0x80 ? 1 : 0
             this.reg.a = (this.reg.a << 1) + (this.reg.f & 0x10 ? 1 : 0)
             this.reg.a &= 0xff
@@ -823,7 +824,7 @@ class CPU {
         }
         //RRCA
         this.instructions[0b1111] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rrca', undefined, undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rrca', undefined)
             let b0 = this.reg.a & 0b1
             this.reg.f = b0 << 4
             this.reg.a = (this.reg.a >> 1) + (b0 << 7)
@@ -832,7 +833,7 @@ class CPU {
         }
         //RRA
         this.instructions[0b11111] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rra', undefined, undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rra', undefined)
             let b0 = this.reg.a & 0b1
             this.reg.a = (this.reg.a >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
             this.reg.a &= 0xff
@@ -843,7 +844,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'rlc', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'rlc', r1)
                 let b7 = this.reg[r1] & 0x80 ? 1 : 0
                 this.reg[r1] = (this.reg[r1] << 1) + b7
                 this.reg[r1] &= 0xff
@@ -854,7 +855,7 @@ class CPU {
         }
         // RLC (HL)
         this.instructions[0x100 + 0b110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rlc', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rlc', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
@@ -870,7 +871,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b10 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'rl', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'rl', r1)
                 let b7 = this.reg[r1] & 0x80 ? 1 : 0
                 this.reg[r1] = (this.reg[r1] << 1) + (this.reg.f & 0x10 ? 1 : 0)
                 this.reg[r1] &= 0xff
@@ -881,7 +882,7 @@ class CPU {
         }
         // RL (HL)
         this.instructions[0x100 + 0b10110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rl', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rl', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
@@ -897,7 +898,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b1 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'rrc', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'rrc', r1)
                 let b0 = this.reg[r1] & 0b1
                 this.reg[r1] = (this.reg[r1] >> 1) + (b0 << 7)
                 this.reg[r1] &= 0xff
@@ -908,7 +909,7 @@ class CPU {
         }
         //  RRC (HL)
         this.instructions[0x100 + 0b1110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rrc', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rrc', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
@@ -924,7 +925,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b11 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'rr', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'rr', r1)
                 let b0 = this.reg[r1] & 0b1
                 this.reg[r1] = (this.reg[r1] >> 1) + (this.reg.f & 0x10 ? 0b1 << 7 : 0)
                 this.reg[r1] &= 0xff
@@ -935,7 +936,7 @@ class CPU {
         }
         // RR (HL)
         this.instructions[0x100 + 0b11110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'rr', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'rr', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
@@ -951,7 +952,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b100 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'sla', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'sla', r1)
                 let b7 = this.reg[r1] & 0x80 ? 1 : 0
                 this.reg[r1] = (this.reg[r1] << 1)
                 this.reg[r1] &= 0xff
@@ -962,7 +963,7 @@ class CPU {
         }
         // SLA (HL)
         this.instructions[0x100 + 0b100110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'sla', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'sla', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b7 = a & 0x80 ? 1 : 0
@@ -978,7 +979,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b101 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'sra', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'sra', r1)
                 let b0 = this.reg[r1] & 0b1
                 let b7 = this.reg[r1] & 0x80 ? 1 : 0
                 this.reg[r1] = (this.reg[r1] >> 1) + (b7 << 7)
@@ -990,7 +991,7 @@ class CPU {
         }
         // SRA (HL)
         this.instructions[0x100 + 0b101110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'sra', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'sra', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
@@ -1007,7 +1008,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b111 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'srl', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'srl', r1)
                 let b0 = this.reg[r1] & 0b1
                 this.reg[r1] = (this.reg[r1] >> 1)
                 this.reg[r1] &= 0xff
@@ -1018,7 +1019,7 @@ class CPU {
         }
         // SRL (HL)
         this.instructions[0x100 + 0b111110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'srl', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'srl', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let b0 = a & 0b1
@@ -1034,7 +1035,7 @@ class CPU {
         for (let r1 in regCode) {
             let r1b = regCode[r1]
             this.instructions[0x100 + (0b110 << 3) + r1b] = () => {
-                if (this.TRACELOG) this.debuger.tracelog(0, 'swap', r1, undefined)
+                if (this.TRACELOG) this.debuger.tracelog(0, 'swap', r1)
                 let h = this.reg[r1] >> 4
                 let l = this.reg[r1] & 0xf
                 this.reg[r1] = (l << 4) + h
@@ -1045,7 +1046,7 @@ class CPU {
         }
         // SWAP (HL)
         this.instructions[0x100 + 0b110110] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(0, 'swap', '[hl]', undefined)
+            if (this.TRACELOG) this.debuger.tracelog(0, 'swap', '[hl]')
             this.TIMER.step(2)
             let a = this.MMU.rb((this.reg.h << 8) + this.reg.l)
             let h = a >> 4
@@ -1139,7 +1140,7 @@ class CPU {
 
         // JP nn
         this.instructions[0b11000011] = () => {
-            if (this.TRACELOG) this.debuger.tracelog(2, 'jp', `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`, undefined)
+            if (this.TRACELOG) this.debuger.tracelog(2, 'jp', `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
             this.reg.pc += 1
             this.reg.pc = this.MMU.rw(this.reg.pc)
             this.reg.pc -= 1
@@ -1164,7 +1165,7 @@ class CPU {
         this.instructions[0b11000] = () => {
             let e = this.MMU.rb(this.reg.pc + 1)
             if (e > 127) e = -((~e + 1) & 255);
-            if (this.TRACELOG) this.debuger.tracelog(1, 'jr', e)
+            if (this.TRACELOG) this.debuger.tracelog(1, 'jr', `${e >= 0 ? '+' : ''}${e}`)
             this.reg.pc += 1
             this.reg.pc += e
             this.TIMER.step(3)
@@ -1172,11 +1173,11 @@ class CPU {
         // JR cc, e
         for (let cc of [0, 1, 2, 3]) {
             this.instructions[(0b1 << 5) + (cc << 3)] = () => {
-                this.reg.pc += 1
-                let e = this.MMU.rb(this.reg.pc)
+                let e = this.MMU.rb(this.reg.pc + 1)
                 if (e > 127) e = -((~e + 1) & 255);
+                if (this.TRACELOG) this.debuger.tracelog(1, 'jr', ccConditionLabel[cc], `${e >= 0 ? '+' : ''}${e}`)
+                this.reg.pc += 1
                 if (ccCondition[cc](this.reg.f)) {
-                    if (this.TRACELOG) this.debuger.tracelog(1, 'jr', ccConditionLabel[cc], e)
                     this.reg.pc += e
                     this.TIMER.step(3)
                 } else {
@@ -1385,6 +1386,7 @@ class CPU {
         this.reg.e = 0xd8
         this.reg.h = 0x01
         this.reg.l = 0x4d
+        this.GPU.lcdc_7_enable = 1
     }
 
     rst_interrupt (addr) {
@@ -1427,7 +1429,9 @@ class CPU {
     }
 
     exec () {
-        // if (this.TIMER.total_m > 100) return
+        if (this.TRACELOG && this.TIMER.total_m > 100000) {
+            this.stop = true
+        }
         if (this.halt) {
             this.TIMER.step(1)
             return

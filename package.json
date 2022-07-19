@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "web": "npx parcel example/index.html",
-    "headless": "npx parcel build ./src/headless.js --target node --no-minify && node dist/headless.js"
+    "build": "npx parcel build",
+    "test": "npx parcel build --no-optimize && node dist/headless/headless.js"
   },
   "targets": {
     "frontend": {
@@ -21,8 +21,8 @@
     "type": "git",
     "url": "git+https://github.com/JNKKKK/NaiveGBC.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Enkai Ji",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/JNKKKK/NaiveGBC/issues"
   },

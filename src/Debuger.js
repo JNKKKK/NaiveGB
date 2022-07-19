@@ -27,11 +27,11 @@ class Debuger {
         F += (this.CPU.reg.f >> 6 & 0x1) ? 'N' : '-'
         F += (this.CPU.reg.f >> 5 & 0x1) ? 'H' : '-'
         F += (this.CPU.reg.f >> 4 & 0x1) ? 'C' : '-'
-        let BC = ((this.CPU.reg.b << 8) + this.CPU.reg.c).toString('16').padStart(4, '0')
+        let BC = ((this.CPU.reg.b << 8) + this.CPU.reg.c).toString('16').padStart(4, '0').toUpperCase()
         let DE = ((this.CPU.reg.d << 8) + this.CPU.reg.e).toString('16').padStart(4, '0')
         let HL = ((this.CPU.reg.h << 8) + this.CPU.reg.l).toString('16').padStart(4, '0')
-        let SP = this.CPU.reg.sp.toString('16').padStart(2, '0')
-        let PC = this.CPU.reg.pc.toString('16').padStart(2, '0')
+        let SP = this.CPU.reg.sp.toString('16').padStart(4, '0')
+        let PC = this.CPU.reg.pc.toString('16').padStart(4, '0')
         let cy = this.TIMER.total_m * 4
         let ppu = this.GPU.stat_01_mode
         let opcodes = []
@@ -43,7 +43,8 @@ class Debuger {
             opcodes.push('  ')
         }
         let instruction = `${instr} ${args.join(',')}`.padEnd(15, ' ')
-        console.log(`A:${A} F:${F} BC:${BC} DE:${DE} HL:${HL} SP:${SP} PC:${PC} (cy: ${cy}) ppu:+${ppu} |[00]0x${PC}: ${opcodes.join(' ')}  ${instruction}`)
+        // console.log(`A:${A} F:${F} BC:${BC} DE:${DE} HL:${HL} SP:${SP} PC:${PC} (cy: ${cy}) ppu:+${ppu} |[00]0x${PC}: ${opcodes.join(' ')}  ${instruction}`)
+        console.log(`A:${A} F:${F} BC:${BC} DE:${DE} HL:${HL} SP:${SP} PC:${PC} (cy: ${cy}) |[00]0x${PC}: ${opcodes.join(' ')}  ${instruction}`)
     }
 
 }

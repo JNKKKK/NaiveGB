@@ -263,11 +263,12 @@ class MMU {
                             this.zram[addr & 0x7F] = val
                         }
                         else if (addr == 0xff01) {
-                            // console.log('MMU: write 0x',val.toString('16'),' to 0xff01')
-                            // console.log(String.fromCharCode(val), '0x', val.toString('16'))
-                            // console.log('pc:',this.CPU.reg.pc.toString('16'))
-                            const process = require('process');
-                            process.stdout.write(String.fromCharCode(val));
+                            if (typeof window !== 'undefined') { // in browser
+                                console.log(String.fromCharCode(val))
+                            } else { // in nodeJS
+                                const process = require('process');
+                                process.stdout.write(String.fromCharCode(val));
+                            }
                         }
                         else switch (addr & 0xF0) {
                             case 0x00:
