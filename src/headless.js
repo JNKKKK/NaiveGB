@@ -1,6 +1,6 @@
-import ngbc from './ngbc';
+import ngb from './ngb';
 
-var emu = new ngbc("headless");
+var emu = new ngb("headless");
 // emu.MMU.load_rom_localfile('testRoms/instr_timing.gb')
 // emu.MMU.load_rom_localfile('testRoms/interrupt_time.gb')
 // emu.MMU.load_rom_localfile('testRoms/mem_timing2.gb')

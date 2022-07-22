@@ -1,13 +1,13 @@
 class Debugger {
-    constructor (bridge) {
-        this.bridge = bridge
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
-        this.CPU = this.bridge.CPU
-        this.GPU = this.bridge.GPU
-        this.MMU = this.bridge.MMU
-        this.TIMER = this.bridge.TIMER
+        this.CPU = this.ngb.CPU
+        this.GPU = this.ngb.GPU
+        this.MMU = this.ngb.MMU
+        this.TIMER = this.ngb.TIMER
     }
 
     print_tilemap (gpu, tm_i) {

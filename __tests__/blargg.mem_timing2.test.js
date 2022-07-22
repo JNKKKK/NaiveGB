@@ -1,10 +1,10 @@
-import ngbc from '../src/ngbc'
+import ngb from '../src/ngb'
 import { checkGraphic, arrayHash, checkSerial } from '../src/testUtilities'
 
 jest.setTimeout(120 * 1000)
 
-let emu = new ngbc("headless-non-blocking");
-emu.bridge.jest = {
+let emu = new ngb("headless-non-blocking");
+emu.jest = {
     serialBuffer: ''
 }
 emu.MMU.load_rom_localfile('testRoms/mem_timing2.gb')

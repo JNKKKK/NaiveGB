@@ -1,7 +1,7 @@
-import ngbc from '../src/ngbc';
+import ngb from '../src/ngb';
 
 window.onload = function () {
-    var emu = new ngbc();
+    var emu = new ngb();
     window.emu=emu
     emu.GPU.connect_canvas(document.getElementById('screen'))
     document.getElementById('run_button').onclick = function () {

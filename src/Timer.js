@@ -3,13 +3,13 @@
 // M-Cycle (m)  // Four T-Cycles - 1,048,576 hz
 
 class Timer {
-    constructor (bridge) {
-        this.bridge = bridge
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
-        this.MMU = this.bridge.MMU
-        this.GPU = this.bridge.GPU
+        this.MMU = this.ngb.MMU
+        this.GPU = this.ngb.GPU
         this.reset()
     }
 

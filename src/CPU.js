@@ -1,13 +1,13 @@
 class CPU {
-    constructor (bridge) {
-        this.bridge = bridge
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
-        this.TIMER = this.bridge.TIMER
-        this.MMU = this.bridge.MMU
-        this.GPU = this.bridge.GPU
-        this.debugger = this.bridge.debugger
+        this.TIMER = this.ngb.TIMER
+        this.MMU = this.ngb.MMU
+        this.GPU = this.ngb.GPU
+        this.debugger = this.ngb.debugger
         // this.TRACELOG = true
         this.reg = {
             a: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, f: 0,

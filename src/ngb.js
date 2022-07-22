@@ -4,27 +4,17 @@ import TIMER from './Timer'
 import GPU from './GPU'
 import JOYPAD from './Joypad'
 import Debugger from './Debugger'
-import Bridge from './Bridge'
-class ngbc {
+class ngb {
 
     constructor (mode) {
         this.mode = mode
-        // new bridge
-        this.bridge = new Bridge()
         // new components
-        this.TIMER = new TIMER(this.bridge)
-        this.GPU = new GPU(this.bridge)
-        this.MMU = new MMU(this.bridge)
-        this.CPU = new CPU(this.bridge)
-        this.JOYPAD = new JOYPAD(this.bridge)
-        this.debugger = new Debugger(this.bridge)
-        // register in bridge
-        this.bridge.register('CPU', this.CPU)
-        this.bridge.register('MMU', this.MMU)
-        this.bridge.register('TIMER', this.TIMER)
-        this.bridge.register('GPU', this.GPU)
-        this.bridge.register('JOYPAD', this.JOYPAD)
-        this.bridge.register('debugger', this.debugger)
+        this.TIMER = new TIMER(this)
+        this.GPU = new GPU(this)
+        this.MMU = new MMU(this)
+        this.CPU = new CPU(this)
+        this.JOYPAD = new JOYPAD(this)
+        this.debugger = new Debugger(this)        
         // init components
         this.CPU.init()
         this.GPU.init()
@@ -103,4 +93,4 @@ class ngbc {
 
 }
 
-export default ngbc
+export default ngb

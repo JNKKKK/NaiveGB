@@ -1,6 +1,6 @@
 class MMU {
-    constructor (bridge) {
-        this.bridge = bridge
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
@@ -23,10 +23,10 @@ class MMU {
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
         this.rom = ''
-        this.TIMER = this.bridge.TIMER
-        this.GPU = this.bridge.GPU
-        this.CPU = this.bridge.CPU
-        this.JOYPAD = this.bridge.JOYPAD
+        this.TIMER = this.ngb.TIMER
+        this.GPU = this.ngb.GPU
+        this.CPU = this.ngb.CPU
+        this.JOYPAD = this.ngb.JOYPAD
         this.reset()
     }
 
@@ -265,8 +265,8 @@ class MMU {
                         else if (addr == 0xff01) {
                             if (typeof window !== 'undefined') { // in browser
                                 console.log(String.fromCharCode(val))
-                            } else if (typeof this.bridge.jest !== 'undefined') { // in nodeJS JEST
-                                this.bridge.jest.serialBuffer += (String.fromCharCode(val))
+                            } else if (typeof this.ngb.jest !== 'undefined') { // in nodeJS JEST
+                                this.ngb.jest.serialBuffer += (String.fromCharCode(val))
                             } else { // in nodeJS 
                                 const process = require('process');
                                 process.stdout.write(String.fromCharCode(val));
@@ -275,7 +275,7 @@ class MMU {
                                 // } else {
                                 //     this.tmp = [String.fromCharCode(val)]
                                 // }
-                                // console.log(this.bridge.TIMER.total_m, JSON.stringify(this.tmp))
+                                // console.log(this.TIMER.total_m, JSON.stringify(this.tmp))
                             }
                         }
                         else switch (addr & 0xF0) {

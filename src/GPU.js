@@ -1,12 +1,11 @@
 class GPU {
 
-    constructor (bridge) {
-        this.bridge = bridge
-
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
-        this.MMU = this.bridge.MMU
+        this.MMU = this.ngb.MMU
         this.reset()
     }
 

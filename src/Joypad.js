@@ -1,6 +1,6 @@
 class Joypad {
-    constructor (bridge) {
-        this.bridge = bridge
+    constructor (ngb) {
+        this.ngb = ngb
     }
 
     init () {
