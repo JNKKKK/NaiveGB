@@ -273,20 +273,20 @@ class MMU {
                         else switch (addr & 0xF0) {
                             case 0x00:
                                 switch (addr & 0xF) {
-                                    case 0:
+                                    case 0: // FF00
                                         this.JOYPAD.wb(val); //tmp0
                                         break
-                                    case 4: case 5: case 6: case 7:
+                                    case 4: case 5: case 6: case 7: // FF04/5/6/7
                                         this.TIMER.wb(addr, val); //tmp0
                                         break
-                                    case 15: this.if = val; break
+                                    case 15: this.if = val; break // FF0F
                                 }
                                 break
 
-                            case 0x10: case 0x20: case 0x30:
+                            case 0x10: case 0x20: case 0x30: // FF10 FF20 FF30
                                 break
 
-                            case 0x40: case 0x50: case 0x60: case 0x70:
+                            case 0x40: case 0x50: case 0x60: case 0x70: //FF40 FF50 FF60 FF70
                                 this.GPU.wb(addr, val); //tmp0
                                 break
                         }

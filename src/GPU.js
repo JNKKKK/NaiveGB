@@ -287,10 +287,12 @@ class GPU {
                     this.modeclocks -= 114;
                     this.reg.ly++;
                     this.check_ly_lyc()
-                    if (this.reg.ly > 153) {
-                        this.reg.ly = 0;
-                        this.check_ly_lyc()
+                    if (this.reg.ly == 1 ) {
+                        this.reg.ly = 0; 
                         this.stat_01_mode = 2;
+                    }
+                    if (this.reg.ly == 153) {
+                        this.reg.ly = 0; 
                     }
                 }
                 break;

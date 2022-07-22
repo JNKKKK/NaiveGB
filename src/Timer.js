@@ -68,9 +68,18 @@ class Timer {
     wb (addr, val) {
         switch (addr) {
             case 0xFF04: this.reg.divider = 0; break;
-            case 0xFF05: this.reg.counter = val; break;
+            case 0xFF05:
+                this.reg.counter = val;
+                // this.cnt_m = 0;
+                break;
             case 0xFF06: this.reg.modulo = val; break;
-            case 0xFF07: this.reg.control = val & 0b111; break;
+            case 0xFF07:
+                // if turning the timer on/off, clear the temporary count
+                if ((this.reg.control & 0b100) != (val & 0b100)) {
+                    this.cnt_m = 0
+                }
+                this.reg.control = val & 0b111;
+                break;
         }
     }
 }
