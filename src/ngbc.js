@@ -33,7 +33,7 @@ class ngbc {
         this.JOYPAD.init()
         this.debugger.init()
         //config GPU
-        if (mode.startsWith('headless')) this.GPU.setHeadless()
+        if (mode && mode.startsWith('headless')) this.GPU.setHeadless()
         //config CPU
         this.CPU.skip_bios()
     }
@@ -68,13 +68,13 @@ class ngbc {
     run_headless_blocking (batch) {
         // batch means how many intructions to run in a batch
         // If batch specified, the loop will stop after executing N instructions
-        let count=0
+        let count = 0
         do {
             this.CPU.exec()
             this.CPU.handle_interrupt()
             if (batch) {
                 count++
-                if (count==batch) break
+                if (count == batch) break
             }
         } while (!this.CPU.stop)
     }
