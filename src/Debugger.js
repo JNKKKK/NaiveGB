@@ -1,4 +1,4 @@
-class Debuger {
+class Debugger {
     constructor (bridge) {
         this.bridge = bridge
     }
@@ -45,15 +45,12 @@ class Debuger {
         for (let i = 0; i < argc + 1; i++) {
             opcodes.push(this.MMU.rb(this.CPU.reg.pc + i).toString('16').padStart(2, '0'))
         }
-        // add space
-        // for (let i = 0; i < 2 - argc; i++) {
-        //     opcodes.push('  ')
-        // }
         let instruction = `${instr} ${args.join(',')}`.padEnd(15, ' ')
         // console.log(`A:${A} F:${F} BC:${BC} DE:${DE} HL:${HL} SP:${SP} PC:${PC} (cy: ${cy}) ppu:+${ppu} |[00]0x${PC}: ${opcodes.join(' ')}  ${instruction}`)
         console.log(`A:${A} F:${F} BC:${BC} DE:${DE} HL:${HL} SP:${SP} PC:${PC} (cy: ${cy}) |[00]0x${PC}: ${opcodes.join(' ').padEnd(8, ' ')}  ${instruction}`)
     }
 
+
 }
 
-export default Debuger
+export default Debugger

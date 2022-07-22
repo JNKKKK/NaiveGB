@@ -265,19 +265,27 @@ class MMU {
                         else if (addr == 0xff01) {
                             if (typeof window !== 'undefined') { // in browser
                                 console.log(String.fromCharCode(val))
-                            } else { // in nodeJS
+                            } else if (typeof this.bridge.jest !== 'undefined') { // in nodeJS JEST
+                                this.bridge.jest.serialBuffer += (String.fromCharCode(val))
+                            } else { // in nodeJS 
                                 const process = require('process');
                                 process.stdout.write(String.fromCharCode(val));
+                                // if (this.tmp) {
+                                //     this.tmp.push(String.fromCharCode(val))
+                                // } else {
+                                //     this.tmp = [String.fromCharCode(val)]
+                                // }
+                                // console.log(this.bridge.TIMER.total_m, JSON.stringify(this.tmp))
                             }
                         }
                         else switch (addr & 0xF0) {
                             case 0x00:
                                 switch (addr & 0xF) {
                                     case 0: // FF00
-                                        this.JOYPAD.wb(val); //tmp0
+                                        this.JOYPAD.wb(val);
                                         break
                                     case 4: case 5: case 6: case 7: // FF04/5/6/7
-                                        this.TIMER.wb(addr, val); //tmp0
+                                        this.TIMER.wb(addr, val);
                                         break
                                     case 15: this.if = val; break // FF0F
                                 }
@@ -287,7 +295,7 @@ class MMU {
                                 break
 
                             case 0x40: case 0x50: case 0x60: case 0x70: //FF40 FF50 FF60 FF70
-                                this.GPU.wb(addr, val); //tmp0
+                                this.GPU.wb(addr, val);
                                 break
                         }
                 }
