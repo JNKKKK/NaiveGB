@@ -53,8 +53,8 @@ class GPU {
         this.tileset = Array(384).fill(0).map(() => Array(64).fill(0))
         // tilemap
         this.tilemap = []
-        this.tilemap[0] = Array(1024).fill(0).map(() => [0, 0])
-        this.tilemap[1] = Array(1024).fill(0).map(() => [0, 0])
+        this.tilemap[0] = Array(1024).fill(0).map(() => [Array(64).fill(0), Array(64).fill(0)])
+        this.tilemap[1] = Array(1024).fill(0).map(() => [Array(64).fill(0), Array(64).fill(0)])
         // sprite
         this.sprite = Array(40).fill(0).map(() => {
             return {
@@ -286,12 +286,12 @@ class GPU {
                     this.modeclocks -= 114;
                     this.reg.ly++;
                     this.check_ly_lyc()
-                    if (this.reg.ly == 1 ) {
-                        this.reg.ly = 0; 
+                    if (this.reg.ly == 1) {
+                        this.reg.ly = 0;
                         this.stat_01_mode = 2;
                     }
                     if (this.reg.ly == 153) {
-                        this.reg.ly = 0; 
+                        this.reg.ly = 0;
                     }
                 }
                 break;
