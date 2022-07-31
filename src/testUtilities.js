@@ -1,7 +1,7 @@
 function checkSerial (maxM, emu, intervalSecs) {
     return new Promise((resolve) => {
         let interval = setInterval(() => { // check m-cycle every N secs
-            console.log('Current M-cycle:', emu.TIMER.total_m, "Wait till:", maxM)
+            console.log('Current M-cycle:', emu.TIMER.total_m, ". Wait till:", maxM)
             console.log(emu.jest.serialBuffer)
             if (emu.TIMER.total_m > maxM) { // m-cycle reaches threshold
                 clearInterval(interval)
@@ -15,7 +15,7 @@ function checkSerial (maxM, emu, intervalSecs) {
 function checkGraphic (maxM, emu, intervalSecs) {
     return new Promise((resolve) => {
         let interval = setInterval(() => { // check m-cycle every N secs
-            console.log('Current M-cycle:', emu.TIMER.total_m, "Wait till:", maxM)
+            console.log('Current M-cycle:', emu.TIMER.total_m, ". Wait till:", maxM)
             if (emu.TIMER.total_m > maxM) { // m-cycle reaches threshold
                 emu.stop()
                 clearInterval(interval)

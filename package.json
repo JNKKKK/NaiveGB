@@ -6,7 +6,8 @@
   "scripts": {
     "web": "npx parcel example/index.html",
     "build": "npx parcel build",
-    "test": "npx parcel build --no-optimize && node dist/headless/headless.js"
+    "headless": "npx parcel build --no-optimize && node dist/headless/headless.js",
+    "test": "npx jest"
   },
   "targets": {
     "frontend": {

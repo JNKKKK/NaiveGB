@@ -10,6 +10,7 @@ class Timer {
     init () {
         this.MMU = this.ngb.MMU
         this.GPU = this.ngb.GPU
+        this.APU = this.ngb.APU
         this.reset()
     }
 
@@ -54,6 +55,8 @@ class Timer {
         }
         // gpu checkline
         this.GPU.step(m)
+        // APU update
+        this.APU.update(m * 4)
     }
 
     rb (addr) {

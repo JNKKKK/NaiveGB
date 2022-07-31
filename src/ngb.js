@@ -3,6 +3,7 @@ import MMU from './MMU'
 import TIMER from './Timer'
 import GPU from './GPU'
 import JOYPAD from './Joypad'
+import APU from './Sound'
 import Debugger from './Debugger'
 class ngb {
 
@@ -14,13 +15,16 @@ class ngb {
         this.MMU = new MMU(this)
         this.CPU = new CPU(this)
         this.JOYPAD = new JOYPAD(this)
-        this.debugger = new Debugger(this)        
+        this.APU = new APU(this)
+        this.debugger = new Debugger(this)
         // init components
         this.CPU.init()
         this.GPU.init()
         this.MMU.init()
         this.TIMER.init()
         this.JOYPAD.init()
+        // init APU right now only in headless mode
+        if (mode?.startsWith('headless')) this.APU.init()
         this.debugger.init()
         //config GPU
         if (mode && mode.startsWith('headless')) this.GPU.setHeadless()
@@ -34,9 +38,13 @@ class ngb {
         this.MMU.reset()
         this.GPU.reset()
         this.TIMER.reset()
+        this.APU.reset()
     }
 
     run_web () {
+        // init APU after a user gesture
+        this.APU.init()
+
         var frame = () => {
             var t0 = new Date();
             do {

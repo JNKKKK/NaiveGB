@@ -27,6 +27,7 @@ class MMU {
         this.GPU = this.ngb.GPU
         this.CPU = this.ngb.CPU
         this.JOYPAD = this.ngb.JOYPAD
+        this.APU = this.ngb.APU
         this.reset()
     }
 
@@ -130,22 +131,23 @@ class MMU {
                         else if (addr > 0xFF7F) {
                             return this.zram[addr & 0x7F]
                         }
-                        else switch (addr & 0xF0) {
-                            case 0x00:
+                        else switch (addr & 0xF0) { // 0xFFnn
+                            case 0x00: // FF0n
                                 switch (addr & 0xF) {
-                                    case 0:
+                                    case 0: // FF00
                                         return this.JOYPAD.rb();    // JOYP
-                                    case 4: case 5: case 6: case 7:
+                                    case 4: case 5: case 6: case 7: // FF04/5/6/7
                                         return this.TIMER.rb(addr)
-                                    // return 0 //tmp0
-                                    case 15: return this.if;    // Interrupt flags
+                                    case 15: return this.if;    // FF0F Interrupt flags
                                     default: return 0
                                 }
 
-                            case 0x10: case 0x20: case 0x30:
-                                return 0
+                            // Sound APU
+                            case 0x10: case 0x20: case 0x30: // FF1n FF2n FF3n
+                                return this.APU.rb(addr)
 
-                            case 0x40: case 0x50: case 0x60: case 0x70:
+                            // GPU
+                            case 0x40: case 0x50: case 0x60: case 0x70: //FF4n FF5n FF6n FF7n
                                 return this.GPU.rb(addr)
                         }
                 }
@@ -291,10 +293,11 @@ class MMU {
                                 }
                                 break
 
-                            case 0x10: case 0x20: case 0x30: // FF10 FF20 FF30
+                            case 0x10: case 0x20: case 0x30: // FF1n FF2n FF3n
+                                this.APU.wb(addr, val)
                                 break
 
-                            case 0x40: case 0x50: case 0x60: case 0x70: //FF40 FF50 FF60 FF70
+                            case 0x40: case 0x50: case 0x60: case 0x70: //FF4n FF5n FF6n FF7n
                                 this.GPU.wb(addr, val);
                                 break
                         }
