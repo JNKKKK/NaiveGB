@@ -7,6 +7,7 @@ class CPU {
         this.TIMER = this.ngb.TIMER
         this.MMU = this.ngb.MMU
         this.GPU = this.ngb.GPU
+        this.APU = this.ngb.APU
         this.debugger = this.ngb.debugger
         // this.TRACELOG = true
         this.reg = {
@@ -1378,7 +1379,7 @@ class CPU {
         this.reg.pc = 0x100
         this.MMU.inbios = 0
         this.reg.sp = 0xFFFE
-        this.reg.a = 0x11
+        this.reg.a = 0x01
         this.reg.f = 0xb0
         this.reg.b = 0x00
         this.reg.c = 0x13
@@ -1429,7 +1430,7 @@ class CPU {
     }
 
     exec () {
-        if (this.TRACELOG && this.TIMER.total_m > 500000) {
+        if (this.TRACELOG && this.TIMER.total_m > 850000) {
             this.stop = true
         }
         if (this.halt) {

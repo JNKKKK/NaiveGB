@@ -24,6 +24,7 @@ class APU {
                         value: 0
                     },
                     connect: () => { },
+                    disconnect: () => { },
                     start: () => { }
                 }),
                 createBuffer: () => ({
@@ -33,6 +34,7 @@ class APU {
                     buffer: 0,
                     loop: 0,
                     connect: () => { },
+                    disconnect: () => { },
                     start: () => { },
                     playbackRate: {
                         value: 0
@@ -61,7 +63,7 @@ class APU {
     }
 
     update (clockElapsed) {
-        if (this.enabled == false) return;
+        if (this.enable == false) return;
         this.channel1.update(clockElapsed);
         this.channel2.update(clockElapsed);
         this.channel3.update(clockElapsed);
@@ -75,69 +77,84 @@ class APU {
         this.reg.NR52 |= value;
     };
 
+    skip_bios () {
+        this.reg.NR52 = 0xf1
+        this.channel1.reg.NR10 = 0x80
+        this.channel1.reg.NR11 = 0xbf
+        this.channel3.reg.NR30 = 0x7f
+        this.channel3.reg.NR32 = 0x9f
+        this.channel4.reg.NR41 = 0xff
+        this.enable = true
+    }
+
     rb (addr) {
         switch (addr) {
             // Channel 1 addresses
             case 0xFF10:
-                return this.channel1.reg.NR10
+                return this.channel1.reg.NR10 | 0x80
             case 0xFF11:
-                return this.channel1.reg.NR11
+                return this.channel1.reg.NR11 | 0x3f
             case 0xFF12:
                 return this.channel1.reg.NR12
             case 0xFF13:
-                return this.channel1.reg.NR13
+                return this.channel1.reg.NR13 | 0xff
             case 0xFF14:
-                return this.channel1.reg.NR14
+                return this.channel1.reg.NR14 | 0xbf
             // Channel 2 addresses
             case 0xFF16:
-                return this.channel2.reg.NR21
+                return this.channel2.reg.NR21 | 0x3f
             case 0xFF17:
                 return this.channel2.reg.NR22
             case 0xFF18:
-                return this.channel2.reg.NR23
+                return this.channel2.reg.NR23 | 0xff
             case 0xFF19:
-                return this.channel2.reg.NR24
+                return this.channel2.reg.NR24 | 0xbf
             // Channel 3 addresses
             case 0xFF1A:
-                return this.channel3.reg.NR30
+                return this.channel3.reg.NR30 | 0x7f
             case 0xFF1B:
-                return this.channel3.reg.NR31
+                return this.channel3.reg.NR31 | 0xff
             case 0xFF1C:
-                return this.channel3.reg.NR32
+                return this.channel3.reg.NR32 | 0x9f
             case 0xFF1D:
-                return this.channel3.reg.NR33
+                return this.channel3.reg.NR33 | 0xff
             case 0xFF1E:
-                return this.channel3.reg.NR34
+                return this.channel3.reg.NR34 | 0xbf
             // channel 3 wave bytes
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                return this.channel3.reg.waveRam[addr - 0xFF30]
+                return this.channel3.waveRam[addr - 0xFF30]
             // Channel 4 addresses
             case 0xFF20:
-                return this.channel4.reg.NR41
+                return this.channel4.reg.NR41 | 0xff
             case 0xFF21:
                 return this.channel4.reg.NR42
             case 0xFF22:
                 return this.channel4.reg.NR43
             case 0xFF23:
-                return this.channel4.reg.NR44
+                return this.channel4.reg.NR44 | 0xbf
             // general audio switch
             case 0xFF24:
                 return this.reg.NR50
             case 0xFF25:
                 return this.reg.NR51
             case 0xFF26:
-                return this.reg.NR52
+                return this.reg.NR52 | 0x70
+            default:
+                return 0xff
         }
     }
 
     wb (addr, val) {
+        // when powered off, ignore all write operations to regs
+        if (!this.enable && addr != 0xFF26 && addr < 0xFF30) return
+
         let frequency;
 
         switch (addr) {
             // Channel 1 addresses
             case 0xFF10: // NR10 - Channel 1 Sweep register (R/W)
-                this.channel1.reg.NR10 = val
+                this.channel1.reg.NR10 = val | 0x80
                 this.channel1.clockSweep = 0;
                 this.channel1.sweepTime = ((val & 0x70) >> 4);
                 this.channel1.sweepSign = (val & 0x08) ? -1 : 1;
@@ -205,7 +222,7 @@ class APU {
             // Channel 3 addresses
             case 0xFF1A: // NR30 - Channel 3 Sound on/off (R/W)
                 // todo
-                this.channel3.reg.NR30 = val
+                this.channel3.reg.NR30 = val | 0x7f
                 break;
             case 0xFF1B: // NR31 - Channel 3 Sound Length (W)
                 this.channel3.reg.NR31 = val
@@ -213,7 +230,7 @@ class APU {
                 break;
             case 0xFF1C: // NR32 - Channel 3 Select output level (R/W)
                 // todo
-                this.channel3.reg.NR32 = val
+                this.channel3.reg.NR32 = val | 0x9f
                 break;
             case 0xFF1D: // NR33 - Channel 3 Frequency’s lower data (W)
                 this.channel3.reg.NR33 = val
@@ -237,13 +254,13 @@ class APU {
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
                 let index = addr - 0xFF30;
-                this.channel3.reg.waveRam[index] = val
+                this.channel3.waveRam[index] = val
                 this.channel3.setWaveBufferByte(index, val);
                 break;
 
             // Channel 4 addresses
             case 0xFF20: // NR41 - Channel 4 Sound Length (W)
-                this.channel4.reg.NR41 = val
+                this.channel4.reg.NR41 = val | 0xc0
                 this.channel4.setLength(val & 0x3F);
                 break;
             case 0xFF21: // NR42 - Channel 4 Volume Envelope (R/W)
@@ -271,11 +288,19 @@ class APU {
                 break
             case 0xFF26:
                 this.reg.NR52 = val & 0xF0
-                this.enabled = (val & 0x80) == 0 ? false : true;
-                if (!this.enabled) {
-                    // todo: clear all regs for all channels
-                    // todo: stop sound
+                let enabled = (val & 0x80) == 0 ? false : true;
+                if (this.enabled && !enabled) { // turn-off APU
+                    this.channel1.disable()
+                    // this.channel1.reset()
+                    this.channel2.disable()
+                    // this.channel2.reset()
+                    this.channel3.disable()
+                    // this.channel3.reset()
+                    this.channel4.disable()
+                    // this.channel4.reset()
+                    this.reset()
                 }
+                this.enabled = enabled
                 break;
         }
     }
@@ -451,12 +476,12 @@ class Channel3 {
 
     reset () {
         this.reg = {}
-        this.reg.NR30 = 0
+        this.reg.NR30 = 0x7f
         this.reg.NR31 = 0
-        this.reg.NR32 = 0
+        this.reg.NR32 = 0x9f
         this.reg.NR33 = 0
         this.reg.NR34 = 0
-        this.reg.waveRam = Array(16).fill(0)
+        if (typeof this.waveRam === 'undefined') this.waveRam = Array(16).fill(0)
 
         this.playing = false;
 
@@ -557,7 +582,7 @@ class Channel4 {
 
     reset () {
         this.reg = {}
-        this.reg.NR41 = 0
+        this.reg.NR41 = 0xff
         this.reg.NR42 = 0
         this.reg.NR43 = 0
         this.reg.NR44 = 0
@@ -598,7 +623,10 @@ class Channel4 {
     setLength (value) {
         this.soundLength = 64 - (value & 0x3F);
     };
-
+    disable () {
+    };
+    enable () {
+    };
 }
 
 export default APU

@@ -24,7 +24,10 @@ class ngb {
         this.TIMER.init()
         this.JOYPAD.init()
         // init APU right now only in headless mode
-        if (mode?.startsWith('headless')) this.APU.init()
+        if (mode?.startsWith('headless')) {
+            this.APU.init()
+            this.APU.skip_bios()
+        }
         this.debugger.init()
         //config GPU
         if (mode && mode.startsWith('headless')) this.GPU.setHeadless()
@@ -44,6 +47,7 @@ class ngb {
     run_web () {
         // init APU after a user gesture
         this.APU.init()
+        this.APU.skip_bios()
 
         var frame = () => {
             var t0 = new Date();
