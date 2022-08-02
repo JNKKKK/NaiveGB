@@ -90,6 +90,7 @@ class ngb {
 
     run () {
         if (this.mode == 'headless') {
+            this.CPU.TRACELOG = true
             this.run_headless_blocking()
         }
         else if (this.mode == 'headless-non-blocking') {

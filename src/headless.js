@@ -8,5 +8,6 @@ var emu = new ngb("headless");
 // emu.MMU.load_rom_localfile('testRoms/cpu_instrs.gb')
 // emu.MMU.load_rom_localfile('testRoms/01-read_timing.gb')
 // emu.MMU.load_rom_localfile('testRoms/dmg_sound.gb')
-emu.MMU.load_rom_localfile('testRoms/rom_singles/01-registers.gb')
+// emu.MMU.load_rom_localfile('testRoms/rom_singles/01-registers.gb')
+emu.MMU.load_rom_localfile('testRoms/rom_singles/03-trigger.gb')
 emu.run()
