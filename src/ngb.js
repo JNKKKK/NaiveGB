@@ -55,8 +55,8 @@ class ngb {
                 this.CPU.exec()
                 if (this.CPU.stop) break
                 this.CPU.handle_interrupt()
-            } while (this.TIMER.total_m < 17556)
-            this.TIMER.total_m = 0
+            } while (this.TIMER.total_mdebug < 17556)
+            this.TIMER.total_mdebug = 0
             do {
                 var t1 = new Date();
             } while ((t1 - t0) / 1000 < (1 / 62))

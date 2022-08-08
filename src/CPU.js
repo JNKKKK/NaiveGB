@@ -1429,9 +1429,15 @@ class CPU {
     }
 
     exec () {
-        if (this.TRACELOG && this.TIMER.total_m > 850000) {
-            this.stop = true
-        }
+        // if (this.TRACELOG && this.TIMER.total_m > 850000) {
+        //     this.stop = true
+        // }
+        // if ((this.TIMER.total_m * 4 > 3980000) && (this.TIMER.total_m * 4 <= 3981336)) {
+        // // if ((this.TIMER.total_m * 4 > 3012736) && (this.TIMER.total_m * 4 <= 3029152)) {
+        //     this.TRACELOG = true
+        // } else {
+        //     this.TRACELOG = false
+        // }
         if (this.halt) {
             this.TIMER.step(1)
             return

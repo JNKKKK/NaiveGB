@@ -1,1 +1,1 @@
-# NaiveGBC
+# NaiveGB

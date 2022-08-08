@@ -155,11 +155,10 @@ class APU {
             // Channel 1 addresses
             case 0xFF10: // NR10 - Channel 1 Sweep register (R/W)
                 this.channel1.reg.NR10 = val | 0x80
-                this.channel1.clockSweep = 0;
-                this.channel1.sweepTime = ((val & 0x70) >> 4);
+                // this.channel1.clockSweep = 0;
+                this.channel1.sweepPeriod = ((val & 0x70) >> 4);
                 this.channel1.sweepSign = (val & 0x08) ? -1 : 1;
                 this.channel1.sweepShifts = (val & 0x07);
-                this.channel1.sweepCount = this.channel1.sweepShifts;
                 break;
             case 0xFF11: // NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
                 // todo : bits 6-7
@@ -340,12 +339,11 @@ class Channel12 {
         this.soundLength = 64; // defaults to 64 periods
         this.lengthCheck = false;
 
-        this.sweepTime = 0; // from 0 to 7
+        this.sweepPeriod = 0; // from 0 to 7
         this.sweepStepLength = 0x8000; // 1 / 128 seconds of instructions
-        this.sweepCount = 0;
         this.sweepShifts = 0;
         this.sweepSign = 1; // +1 / -1 for increase / decrease freq
-
+        this.sweepEnabled = 0;
         this.frequency = 0;
 
         this.envelopeStep = 0;
@@ -383,7 +381,14 @@ class Channel12 {
         }
         this.clockEnvelop = 0;
         this.clockSweep = 0;
-        if (this.sweepShifts > 0) this.checkFreqSweep();
+        this.sweepEnabled = this.sweepShifts || this.sweepPeriod
+        // console.log('sweep:', this.sweepEnabled)
+        if (this.sweepShifts) {
+            if (this.calcSweepFreq() > 0x7FF) {
+                // console.log('of')
+                this.stop();
+            }
+        }
         if (this.channelNumber == 1 && (this.reg.NR12 >> 3) == 0)
             this.stop()
         if (this.channelNumber == 2 && (this.reg.NR22 >> 3) == 0)
@@ -396,13 +401,9 @@ class Channel12 {
         this.gainNode.disconnect();
     };
 
-    checkFreqSweep () {
+    calcSweepFreq () {
         let oldFreq = this.frequency;
         let newFreq = oldFreq + this.sweepSign * (oldFreq >> this.sweepShifts);
-        if (newFreq > 0x7FF) {
-            newFreq = 0;
-            this.stop();
-        }
         return newFreq;
     };
 
@@ -443,31 +444,47 @@ class Channel12 {
         this.oscillator.connect(this.gainNode);
     };
 
-    update (clockElapsed) {
-        this.clockEnvelop += clockElapsed;
-        this.clockSweep += clockElapsed;
 
-        if ((this.sweepCount || this.sweepTime) && this.clockSweep > (this.sweepStepLength * this.sweepTime)) {
-            this.clockSweep -= (this.sweepStepLength * this.sweepTime);
-            this.sweepCount--;
-
-            let newFreq = this.checkFreqSweep(); // process and check new freq
-
-            if (this.channelNumber == 1) { // if channel 1
+    updateSweep () {
+        // console.log('updateSweep')
+        let newFreq = this.calcSweepFreq(); // calc new freq
+        if (newFreq > 0x7FF) {
+            // console.log('of')
+            this.stop();
+        } else {
+            if (this.sweepShifts) {
                 this.reg.NR13 = newFreq & 0xFF;
                 this.reg.NR14 &= 0xF8;
                 this.reg.NR14 |= (newFreq & 0x700) >> 8;
-            } else { // if channel 2
-                this.reg.NR23 = newFreq & 0xFF;
-                this.reg.NR24 &= 0xF8;
-                this.reg.NR24 |= (newFreq & 0x700) >> 8;
+
+                this.setFrequency(newFreq)
+
+                newFreq = this.calcSweepFreq(); // calc freq again
+                if (newFreq > 0x7FF) {
+                    // console.log('of')
+                    this.stop();
+                }
             }
+        }
+    }
 
-            this.setFrequency(newFreq);
+    update (clockElapsed) {
+        // Sweep
+        this.clockSweep += clockElapsed;
+        if (this.sweepPeriod) { // period not 0
+            if (this.clockSweep > (this.sweepStepLength * this.sweepPeriod)) {
+                this.clockSweep -= (this.sweepStepLength * this.sweepPeriod);
 
-            this.checkFreqSweep(); // check again with new value
+                if (this.sweepEnabled) this.updateSweep()
+
+            }
+        } else { // period == 0
+            if (this.clockSweep > this.sweepStepLength)
+                this.clockSweep -= this.sweepStepLength
         }
 
+        // Envelope
+        this.clockEnvelop += clockElapsed;
         if (this.envelopeCheck && this.clockEnvelop > this.envelopeStepLength) {
             this.clockEnvelop -= this.envelopeStepLength;
             this.envelopeStep--;
@@ -477,13 +494,15 @@ class Channel12 {
             }
         }
 
+        // Length
         this.clockLength += clockElapsed;
-        if (this.clockLength > this.soundLengthUnit) {
+        if (this.clockLength >= this.soundLengthUnit) {
             this.clockLength -= this.soundLengthUnit;
-            if (this.lengthCheck) this.soundLength--;
-            if (this.soundLength <= 0) {
-                this.soundLength = 0
-                if (this.lengthCheck) {
+            if (this.lengthCheck && this.soundLength > 0) {
+                this.soundLength--;
+                // console.log('len check:',this.soundLength)
+                if (this.soundLength == 0) {
+                    // console.log('stopped by length check')
                     this.stop();
                 }
             }

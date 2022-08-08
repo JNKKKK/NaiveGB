@@ -22,12 +22,14 @@ class Timer {
             control: 0 // FF07 - TAC
         }
         this.total_m = 0
+        this.total_mdebug = 0
         this.div_m = 0
         this.cnt_m = 0
     }
 
     step (m) {
         this.total_m += m
+        this.total_mdebug += m
         // divider timer
         this.div_m += m
         if (this.div_m >= 4 * 16) {
