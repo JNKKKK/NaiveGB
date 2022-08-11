@@ -58,7 +58,8 @@ class Timer {
         // gpu checkline
         this.GPU.step(m)
         // APU update
-        this.APU.update(m * 4)
+        // this.APU.update(m * 4)
+        this.APU.step(m)
     }
 
     rb (addr) {

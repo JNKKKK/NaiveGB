@@ -195,9 +195,9 @@ class GPU {
     }
 
     update_tilemap (addr) {
-        let tm_i
-        if ((addr >= 0x1800) && (addr <= 0x1bff)) tm_i = 0
-        if ((addr >= 0x1c00) && (addr <= 0x1fff)) tm_i = 1
+        let tm_i;
+        if ((addr >= 0x1800) && (addr <= 0x1bff)) tm_i = 0;
+        if ((addr >= 0x1c00) && (addr <= 0x1fff)) tm_i = 1;
         let tile_i_1 = this.vram[addr]
         let tile_i_0 = 0x80 + ((this.vram[addr] + 0x80) & 0xff)
         this.tilemap[tm_i][addr - 0x1800 - 0x400 * tm_i] = [this.tileset[tile_i_0], this.tileset[tile_i_1]]

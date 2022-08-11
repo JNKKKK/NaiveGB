@@ -47,6 +47,8 @@ class APU {
         this.channel3 = new Channel3(this, 3, audioContext);
         this.channel4 = new Channel4(this, 4, audioContext);
 
+        this.mCycle = 0
+
         this.reset()
     }
 
@@ -55,20 +57,59 @@ class APU {
         this.reg.NR50 = 0
         this.reg.NR51 = 0
         this.reg.NR52 = 0
-        this.enable = false
+        this.enabled = false
         this.channel1.init()
         this.channel2.init()
         this.channel3.init()
         this.channel4.init()
+        // this.mCycle = 0
+        this.frame = 7
+    }
+
+    step (m) {
+        // if (this.enabled == false) return;
+        const clockTicks = 2048;
+        const framesCount = 8
+        this.mCycle += m
+        if (this.mCycle >= clockTicks) {
+            this.mCycle -= clockTicks
+            if (this.enabled == false) return;
+            this.frame = (this.frame + 1) % framesCount
+            switch (this.frame) {
+                case 2: case 6: this.updateSweep(); /* Fallthrough. */
+                case 0: case 4: this.updateLength(); break;
+                case 7: this.updateEnvelope(); break;
+                case 1: case 3: case 5: break;
+                default:
+                    console.log('invalid apu frame:', this.frame)
+            }
+        }
     }
 
     update (clockElapsed) {
-        if (this.enable == false) return;
+        if (this.enabled == false) return;
         this.channel1.update(clockElapsed);
         this.channel2.update(clockElapsed);
         this.channel3.update(clockElapsed);
         this.channel4.update(clockElapsed);
     };
+
+    updateSweep () {
+        this.channel1.updateSweep()
+    }
+
+    updateLength () {
+        this.channel1.updateLength()
+        this.channel2.updateLength()
+        this.channel3.updateLength()
+        this.channel4.updateLength()
+    }
+
+    updateEnvelope () {
+        this.channel1.updateEnvelope()
+        this.channel2.updateEnvelope()
+        this.channel4.updateEnvelope()
+    }
 
     setSoundFlag (channel, value) {
         let mask = 0xFF - (1 << (channel - 1));
@@ -84,7 +125,7 @@ class APU {
         this.channel3.reg.NR30 = 0x7f
         this.channel3.reg.NR32 = 0x9f
         this.channel4.reg.NR41 = 0xff
-        this.enable = true
+        this.enabled = true
     }
 
     rb (addr) {
@@ -147,7 +188,7 @@ class APU {
 
     wb (addr, val) {
         // when powered off, ignore all write operations to regs
-        if (!this.enable && addr != 0xFF26 && addr < 0xFF30) return
+        if (!this.enabled && addr != 0xFF26 && addr < 0xFF30) return
 
         let frequency;
 
@@ -186,7 +227,7 @@ class APU {
                 frequency &= 0xFF;
                 frequency |= (val & 7) << 8;
                 this.channel1.setFrequency(frequency);
-                this.channel1.setLengthCheck((val & 0x40) ? true : false);
+                this.channel1.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
                 if (val & 0x80) this.channel1.play();
                 break;
 
@@ -218,7 +259,7 @@ class APU {
                 frequency &= 0xFF;
                 frequency |= (val & 7) << 8;
                 this.channel2.setFrequency(frequency);
-                this.channel2.setLengthCheck((val & 0x40) ? true : false);
+                this.channel2.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
                 if (val & 0x80) this.channel2.play();
                 break;
 
@@ -249,7 +290,7 @@ class APU {
                 frequency &= 0xFF;
                 frequency |= (val & 7) << 8;
                 this.channel3.setFrequency(frequency);
-                this.channel3.setLengthCheck((val & 0x40) ? true : false);
+                this.channel3.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
                 if (val & 0x80) this.channel3.play();
 
                 break;
@@ -293,15 +334,16 @@ class APU {
                 this.reg.NR52 = val & 0xF0
                 let enabled = (val & 0x80) == 0 ? false : true;
                 if (this.enabled && !enabled) { // turn-off APU
+                    console.log('turn-off APU')
                     this.channel1.disable()
-                    // this.channel1.reset()
                     this.channel2.disable()
-                    // this.channel2.reset()
                     this.channel3.disable()
-                    // this.channel3.reset()
                     this.channel4.disable()
-                    // this.channel4.reset()
                     this.reset()
+                }
+                if (!this.enabled && enabled) { // turn-on APU
+                    console.log('turn-on APU')
+                    this.frame = 7
                 }
                 this.enabled = enabled
                 break;
@@ -340,6 +382,7 @@ class Channel12 {
         this.lengthCheck = false;
 
         this.sweepPeriod = 0; // from 0 to 7
+        this.sweepTimer = 0;
         this.sweepStepLength = 0x8000; // 1 / 128 seconds of instructions
         this.sweepShifts = 0;
         this.sweepSign = 1; // +1 / -1 for increase / decrease freq
@@ -373,14 +416,17 @@ class Channel12 {
         this.gainNode.connect(this.audioContext.destination);
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
+            console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it
-            if (this.lengthCheck && this.clockLength < (this.soundLengthUnit / 2)) {
+            if (this.lengthCheck && (this.APU.frame & 1) == 0) {
+                console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
         this.clockEnvelop = 0;
         this.clockSweep = 0;
+        this.sweepTimer = this.sweepPeriod ? this.sweepPeriod : 8;
         this.sweepEnabled = this.sweepShifts || this.sweepPeriod
         // console.log('sweep:', this.sweepEnabled)
         if (this.sweepShifts) {
@@ -416,18 +462,18 @@ class Channel12 {
         this.soundLength = 64 - (value & 0x3F);
     };
 
-    setLengthCheck (bool) {
-        if ((!this.lengthCheck) && bool) { // if enabling length check
+    setLengthCheck (enabled, triggering) {
+        if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length in first half of length period should clock length
-            if (this.clockLength < this.soundLengthUnit / 2) {
+            if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
+                console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
-                if (this.soundLength <= 0) {
-                    this.soundLength = 0
+                if (this.soundLength == 0 && !triggering) {
                     this.stop();
                 }
             }
         }
-        this.lengthCheck = bool
+        this.lengthCheck = enabled
     }
 
     setEnvelopeVolume (volume) {
@@ -446,24 +492,54 @@ class Channel12 {
 
 
     updateSweep () {
-        // console.log('updateSweep')
-        let newFreq = this.calcSweepFreq(); // calc new freq
-        if (newFreq > 0x7FF) {
-            // console.log('of')
-            this.stop();
-        } else {
-            if (this.sweepShifts) {
-                this.reg.NR13 = newFreq & 0xFF;
-                this.reg.NR14 &= 0xF8;
-                this.reg.NR14 |= (newFreq & 0x700) >> 8;
-
-                this.setFrequency(newFreq)
-
-                newFreq = this.calcSweepFreq(); // calc freq again
+        if (!(this.playing && this.sweepEnabled)) return;
+        this.sweepTimer -= 1
+        if (this.sweepTimer == 0) {
+            if (this.sweepPeriod) {
+                this.sweepTimer = this.sweepPeriod // reload sweep timer
+                // console.log('updateSweep')
+                let newFreq = this.calcSweepFreq(); // calc new freq
                 if (newFreq > 0x7FF) {
                     // console.log('of')
                     this.stop();
+                } else {
+                    if (this.sweepShifts) {
+                        this.reg.NR13 = newFreq & 0xFF;
+                        this.reg.NR14 &= 0xF8;
+                        this.reg.NR14 |= (newFreq & 0x700) >> 8;
+
+                        this.setFrequency(newFreq)
+
+                        newFreq = this.calcSweepFreq(); // calc freq again
+                        if (newFreq > 0x7FF) {
+                            // console.log('of')
+                            this.stop();
+                        }
+                    }
                 }
+            } else {
+                this.sweepTimer = 8
+            }
+        }
+    }
+
+    updateLength () {
+        if (this.lengthCheck && this.soundLength > 0) {
+            this.soundLength--;
+            console.log('len check:', this.soundLength, 'cy:', this.APU.ngb.TIMER.total_m * 4)
+            if (this.soundLength == 0) {
+                console.log('stopped by length check')
+                this.stop();
+            }
+        }
+    }
+
+    updateEnvelope () {
+        if (this.envelopeCheck) {
+            this.envelopeStep--;
+            this.setEnvelopeVolume(this.envelopeVolume + this.envelopeSign);
+            if (this.envelopeStep <= 0) {
+                this.envelopeCheck = false;
             }
         }
     }
@@ -566,9 +642,11 @@ class Channel3 {
 
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
+            console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it
-            if (this.lengthCheck && this.clockLength < (this.soundLengthUnit / 2)) {
+            if (this.lengthCheck && (this.APU.frame & 1) == 0) {
+                console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
@@ -596,18 +674,18 @@ class Channel3 {
         this.soundLength = 256 - value;
     };
 
-    setLengthCheck (bool) {
-        if ((!this.lengthCheck) && bool) { // if enabling length check
+    setLengthCheck (enabled, triggering) {
+        if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length in first half of length period should clock length
-            if (this.clockLength < this.soundLengthUnit / 2) {
+            if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
+                console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
-                if (this.soundLength <= 0) {
-                    this.soundLength = 0
+                if (this.soundLength == 0 && !triggering) {
                     this.stop();
                 }
             }
         }
-        this.lengthCheck = bool
+        this.lengthCheck = enabled
     }
 
     setWaveBufferByte (index, value) {
@@ -623,7 +701,16 @@ class Channel3 {
     enable () {
         this.bufferSource.connect(this.gainNode);
     };
-
+    updateLength () {
+        if (this.lengthCheck && this.soundLength > 0) {
+            this.soundLength--;
+            // console.log('len check:',this.soundLength)
+            if (this.soundLength == 0) {
+                // console.log('stopped by length check')
+                this.stop();
+            }
+        }
+    }
     update (clockElapsed) {
         this.clockLength += clockElapsed;
         if (this.clockLength > this.soundLengthUnit) {
@@ -673,9 +760,11 @@ class Channel4 {
 
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
+            console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it
-            if (this.lengthCheck && this.clockLength < (this.soundLengthUnit / 2)) {
+            if (this.lengthCheck && (this.APU.frame & 1) == 0) {
+                console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
@@ -687,7 +776,18 @@ class Channel4 {
         this.playing = false;
         this.APU.setSoundFlag(this.channelNumber, 0);
     };
-
+    updateLength () {
+        if (this.lengthCheck && this.soundLength > 0) {
+            this.soundLength--;
+            // console.log('len check:',this.soundLength)
+            if (this.soundLength == 0) {
+                // console.log('stopped by length check')
+                this.stop();
+            }
+        }
+    }
+    updateEnvelope () {
+    }
     update (clockElapsed) {
         this.clockLength += clockElapsed;
         if (this.clockLength > this.soundLengthUnit) {
@@ -706,18 +806,18 @@ class Channel4 {
         this.soundLength = 64 - (value & 0x3F);
     };
 
-    setLengthCheck (bool) {
-        if ((!this.lengthCheck) && bool) { // if enabling length check
+    setLengthCheck (enabled, triggering) {
+        if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length in first half of length period should clock length
-            if (this.clockLength < this.soundLengthUnit / 2) {
+            if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
+                console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
-                if (this.soundLength <= 0) {
-                    this.soundLength = 0
+                if (this.soundLength == 0 && !triggering) {
                     this.stop();
                 }
             }
         }
-        this.lengthCheck = bool
+        this.lengthCheck = enabled
     }
 
     disable () {
