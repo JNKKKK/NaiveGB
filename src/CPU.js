@@ -1149,7 +1149,7 @@ class CPU {
         // JP cc, nn
         for (let cc of [0, 1, 2, 3]) {
             this.instructions[(0b11 << 6) + (cc << 3) + 0b010] = () => {
-                 this.debugger.tracelog(2, 'jp', ccConditionLabel[cc], `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
+                if (this.TRACELOG) this.debugger.tracelog(2, 'jp', ccConditionLabel[cc], `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
                 this.reg.pc += 1
                 if (ccCondition[cc](this.reg.f)) {
                     this.reg.pc = this.MMU.rw(this.reg.pc)
