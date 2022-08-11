@@ -179,31 +179,39 @@ class APU {
     }
 
     wb (addr, val) {
-        // when powered off, ignore all write operations to regs
-        if (!this.enabled && addr != 0xFF26 && addr < 0xFF30) return
+        // when powered off, ignore all write operations to regs, except length counter and wave ram
+        if (!this.enabled && addr != 0xFF26 && addr != 0xff11 && addr != 0xff16 && addr != 0xff1b && addr != 0xff20 && addr < 0xFF30) return
 
-        let frequency;
+        let frequency, oldSweepSign;
 
         switch (addr) {
             // Channel 1 addresses
             case 0xFF10: // NR10 - Channel 1 Sweep register (R/W)
                 this.channel1.reg.NR10 = val | 0x80
                 this.channel1.sweepPeriod = ((val & 0x70) >> 4);
+                oldSweepSign = this.channel1.sweepSign
                 this.channel1.sweepSign = (val & 0x08) ? -1 : 1;
+                if (oldSweepSign == -1 && this.channel1.sweepSign == 1 && this.channel1.sweepCalculatedSubtract) this.channel1.stop()
                 this.channel1.sweepShifts = (val & 0x07);
                 break;
             case 0xFF11: // NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
                 // todo : bits 6-7
-                this.channel1.reg.NR11 = val
+                if (this.enabled) this.channel1.reg.NR11 = val
                 this.channel1.setLength(val & 0x3F);
                 break;
             case 0xFF12: // NR12 - Channel 1 Volume Envelope (R/W)
                 this.channel1.reg.NR12 = val
                 this.channel1.envelopeSign = (val & 0x08) ? 1 : -1;
-                this.channel1.setEnvelopeVolume((val & 0xF0) >> 4);
-                this.channel1.envelopeStep = (val & 0x07);
+                this.channel1.envelopeInitialVolume = (val & 0xF0) >> 4;
+                this.channel1.envelopePeriod = (val & 0x07);
                 // disabling DAC should disable the channel immediately
-                if ((val >> 3) == 0) this.setSoundFlag(1, 0);
+                if ((val >> 3) == 0) {
+                    this.setSoundFlag(1, 0)
+                } else {
+                    if (this.channel1.envelopePeriod == 0 && this.channel1.envelopeAutomatic) {
+                        this.channel1.setEnvelopeVolume((this.channel1.envelopeVolume + 1) & 15)
+                    }
+                }
                 break;
             case 0xFF13: // NR13 - Channel 1 Frequency lo (Write Only)
                 this.channel1.reg.NR13 = val
@@ -225,7 +233,7 @@ class APU {
             // Channel 2 addresses
             case 0xFF16: // NR21 - Channel 2 Sound Length/Wave Pattern Duty (R/W)
                 // todo : bits 6-7
-                this.channel2.reg.NR21 = val
+                if (this.enabled) this.channel2.reg.NR21 = val
                 this.channel2.setLength(val & 0x3F);
                 break;
             case 0xFF17: // NR22 - Channel 2 Volume Envelope (R/W)
@@ -233,7 +241,7 @@ class APU {
                 this.channel2.envelopeSign = (val & 0x08) ? 1 : -1;
                 let envelopeVolume = (val & 0xF0) >> 4;
                 this.channel2.setEnvelopeVolume(envelopeVolume);
-                this.channel2.envelopeStep = (val & 0x07);
+                this.channel2.envelopePeriod = (val & 0x07);
                 // disabling DAC should disable the channel immediately
                 if ((val >> 3) == 0) this.setSoundFlag(2, 0);
                 break;
@@ -261,7 +269,7 @@ class APU {
                 if ((val >> 7) == 0) this.setSoundFlag(3, 0);
                 break;
             case 0xFF1B: // NR31 - Channel 3 Sound Length (W)
-                this.channel3.reg.NR31 = val
+                if (this.enabled) this.channel3.reg.NR31 = val
                 this.channel3.setLength(val);
                 break;
             case 0xFF1C: // NR32 - Channel 3 Select output level (R/W)
@@ -295,7 +303,7 @@ class APU {
 
             // Channel 4 addresses
             case 0xFF20: // NR41 - Channel 4 Sound Length (W)
-                this.channel4.reg.NR41 = val | 0xc0
+                if (this.enabled) this.channel4.reg.NR41 = val | 0xc0
                 this.channel4.setLength(val & 0x3F);
                 break;
             case 0xFF21: // NR42 - Channel 4 Volume Envelope (R/W)
@@ -373,17 +381,20 @@ class Channel12 {
 
         this.sweepPeriod = 0; // from 0 to 7
         this.sweepTimer = 0;
-        this.sweepStepLength = 0x8000; // 1 / 128 seconds of instructions
         this.sweepShifts = 0;
         this.sweepSign = 1; // +1 / -1 for increase / decrease freq
         this.sweepEnabled = 0;
+        this.sweepFrequency = 0;
+        this.sweepCalculatedSubtract = false
 
         this.frequency = 0;
 
-        this.envelopeStep = 0;
-        this.envelopeStepLength = 0x10000;// 1 / 64 seconds of instructions
-        this.envelopeCheck = false;
+        this.envelopePeriod = 0;
+        this.envelopeTimer = 0;
         this.envelopeSign = 1;
+        this.envelopeAutomatic = false;
+        this.envelopeInitialVolume = 0;
+        this.envelopeVolume = 0
 
         let gainNode = this.audioContext.createGain();
         gainNode.gain.value = 0;
@@ -411,8 +422,11 @@ class Channel12 {
                 this.soundLength--;
             }
         }
+        // sweep
         this.sweepTimer = this.sweepPeriod ? this.sweepPeriod : 8;
         this.sweepEnabled = this.sweepShifts || this.sweepPeriod
+        this.sweepFrequency = this.frequency
+        this.sweepCalculatedSubtract = false
         // console.log('sweep:', this.sweepEnabled)
         if (this.sweepShifts) {
             if (this.calcSweepFreq() > 0x7FF) {
@@ -420,6 +434,15 @@ class Channel12 {
                 this.stop();
             }
         }
+        // envelope
+        this.setEnvelopeVolume(this.envelopeInitialVolume)
+        this.envelopeTimer = this.envelopePeriod ? this.envelopePeriod : 8
+        this.envelopeAutomatic = true;
+        // if the next frame is updating envelope, increment the timer
+        if ((this.APU.frame + 1) == 7) {
+            this.envelopeTimer += 1
+        }
+        // disable the channel if the DAC is disabled
         if (this.channelNumber == 1 && (this.reg.NR12 >> 3) == 0)
             this.stop()
         if (this.channelNumber == 2 && (this.reg.NR22 >> 3) == 0)
@@ -433,8 +456,9 @@ class Channel12 {
     };
 
     calcSweepFreq () {
-        let oldFreq = this.frequency;
+        let oldFreq = this.sweepFrequency;
         let newFreq = oldFreq + this.sweepSign * (oldFreq >> this.sweepShifts);
+        if (this.sweepSign == -1) this.sweepCalculatedSubtract = true
         return newFreq;
     };
 
@@ -462,7 +486,6 @@ class Channel12 {
     }
 
     setEnvelopeVolume (volume) {
-        this.envelopeCheck = volume > 0 && volume < 16 ? true : false;
         this.envelopeVolume = volume;
         this.gainNode.gain.value = this.envelopeVolume * 1 / 100;
     };
@@ -494,6 +517,7 @@ class Channel12 {
                         this.reg.NR14 |= (newFreq & 0x700) >> 8;
 
                         this.setFrequency(newFreq)
+                        this.sweepFrequency = newFreq
 
                         newFreq = this.calcSweepFreq(); // calc freq again
                         if (newFreq > 0x7FF) {
@@ -520,12 +544,21 @@ class Channel12 {
     }
 
     updateEnvelope () {
-        if (this.envelopeCheck) {
-            this.envelopeStep--;
-            this.setEnvelopeVolume(this.envelopeVolume + this.envelopeSign);
-            if (this.envelopeStep <= 0) {
-                this.envelopeCheck = false;
+        if (this.envelopePeriod) {
+            if (this.envelopeAutomatic) {
+                this.envelopeTimer -= 1
+                if (this.envelopeTimer == 0) {
+                    this.envelopeTimer = this.envelopePeriod
+                    let volume = this.envelopeVolume + this.envelopeSign
+                    if (volume < 15 && volume >= 0) {
+                        this.setEnvelopeVolume(volume)
+                    } else {
+                        this.envelopeAutomatic = false
+                    }
+                }
             }
+        } else {
+            this.envelopeTimer = 8
         }
     }
 
@@ -593,6 +626,7 @@ class Channel3 {
             }
         }
 
+        // disable the channel if the DAC is disabled
         if ((this.reg.NR30 >> 7) == 0) this.stop()
     };
 
@@ -694,6 +728,7 @@ class Channel4 {
             }
         }
 
+        // disable the channel if the DAC is disabled
         if ((this.reg.NR42 >> 3) == 0) this.stop()
     };
 
@@ -715,7 +750,7 @@ class Channel4 {
 
     updateEnvelope () {
     }
-    
+
     setLength (value) {
         this.soundLength = 64 - (value & 0x3F);
     };
