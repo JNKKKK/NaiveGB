@@ -71,6 +71,8 @@ class APU {
         const clockTicks = 2048;
         const framesCount = 8
         this.mCycle += m
+        if (this.channel3.playing) this.channel3.updateWave(m)
+
         if (this.mCycle >= clockTicks) {
             this.mCycle -= clockTicks
             if (this.enabled == false) return;
@@ -156,7 +158,15 @@ class APU {
             // channel 3 wave bytes
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                return this.channel3.waveRam[addr - 0xFF30]
+                if (this.channel3.playing) {
+                    if (this.channel3.waveSampleTime == this.ngb.TIMER.total_m * 4) {
+                        return this.channel3.waveRam[this.channel3.wavePosition >> 1]
+                    } else {
+                        return 0xff
+                    }
+                } else {
+                    return this.channel3.waveRam[addr - 0xFF30]
+                }
             // Channel 4 addresses
             case 0xFF20:
                 return this.channel4.reg.NR41 | 0xff
@@ -266,7 +276,7 @@ class APU {
             case 0xFF1A: // NR30 - Channel 3 Sound on/off (R/W)
                 this.channel3.reg.NR30 = val | 0x7f
                 // disabling DAC should disable the channel immediately
-                if ((val >> 7) == 0) this.setSoundFlag(3, 0);
+                if ((val >> 7) == 0) this.channel3.stop()
                 break;
             case 0xFF1B: // NR31 - Channel 3 Sound Length (W)
                 if (this.enabled) this.channel3.reg.NR31 = val
@@ -278,14 +288,14 @@ class APU {
                 break;
             case 0xFF1D: // NR33 - Channel 3 Frequency’s lower data (W)
                 this.channel3.reg.NR33 = val
-                frequency = this.channel3.getFrequency();
+                frequency = this.channel3.frequency;
                 frequency &= 0xF00;
                 frequency |= val;
                 this.channel3.setFrequency(frequency);
                 break;
             case 0xFF1E: // NR34 - Channel 3 Frequency’s higher data (R/W)
                 this.channel3.reg.NR34 = val
-                frequency = this.channel3.getFrequency();
+                frequency = this.channel3.frequency;
                 frequency &= 0xFF;
                 frequency |= (val & 7) << 8;
                 this.channel3.setFrequency(frequency);
@@ -296,9 +306,16 @@ class APU {
             // channel 3 wave bytes
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
-                let index = addr - 0xFF30;
-                this.channel3.waveRam[index] = val
-                this.channel3.setWaveBufferByte(index, val);
+                if (this.channel3.playing) {
+                    if (this.channel3.waveSampleTime == this.ngb.TIMER.total_m * 4) {
+                        this.channel3.waveRam[this.channel3.wavePosition >> 1] = val
+                        this.channel3.setWaveBufferByte(this.channel3.wavePosition >> 1, val);
+                    }
+                } else {
+                    let index = addr - 0xFF30;
+                    this.channel3.waveRam[index] = val
+                    this.channel3.setWaveBufferByte(index, val);
+                }
                 break;
 
             // Channel 4 addresses
@@ -582,12 +599,22 @@ class Channel3 {
         this.reg.NR32 = 0x9f
         this.reg.NR33 = 0
         this.reg.NR34 = 0
+        // if reset again, do not erase wave ram
+        // if first time reset, initialize wave rom with 0
         if (typeof this.waveRam === 'undefined') this.waveRam = Array(16).fill(0)
 
         this.playing = false;
 
         this.soundLength = 0;
         this.lengthCheck = false;
+
+        this.wavePeriod = 0
+        this.waveCycles = 0
+        this.wavePosition = 0
+        this.waveSampleTime = 0
+        this.wavePlaying = 0
+
+        this.frequency = 0
 
         this.buffer = new Float32Array(32);
 
@@ -626,17 +653,45 @@ class Channel3 {
             }
         }
 
+        // wave
+        if (this.wavePlaying) {
+            if (this.waveCycles == 4) {
+                let position = (this.wavePosition + 1) & 31;
+                let byte = this.waveRam[position >> 1];
+                switch (position >> 3) {
+                    case 0:
+                        this.waveRam[0] = byte;
+                        break;
+                    case 1:
+                    case 2:
+                    case 3:
+                        this.waveRam[0] = this.waveRam[(position >> 1) & 12]
+                        this.waveRam[1] = this.waveRam[((position >> 1) & 12) + 1]
+                        this.waveRam[2] = this.waveRam[((position >> 1) & 12) + 2]
+                        this.waveRam[3] = this.waveRam[((position >> 1) & 12) + 3]
+                        break;
+                }
+            }
+        }
+        this.wavePosition = 0
+        this.waveCycles = this.wavePeriod + 8
+        this.wavePlaying = true
+
+
         // disable the channel if the DAC is disabled
         if ((this.reg.NR30 >> 7) == 0) this.stop()
     };
 
     stop () {
         this.playing = false;
+        this.wavePlaying = false
         this.APU.setSoundFlag(this.channelNumber, 0);
         this.gainNode.disconnect();
     };
 
     setFrequency (value) {
+        this.frequency = value
+        this.wavePeriod = ((0x7ff + 1) - this.frequency) * 2;
         value = 65536 / (2048 - value);
         this.bufferSource.playbackRate.value = value / this.baseSpeed;
     };
@@ -674,9 +729,11 @@ class Channel3 {
     disable () {
         this.bufferSource.disconnect();
     };
+
     enable () {
         this.bufferSource.connect(this.gainNode);
     };
+
     updateLength () {
         if (this.lengthCheck && this.soundLength > 0) {
             this.soundLength--;
@@ -687,6 +744,19 @@ class Channel3 {
             }
         }
     }
+
+    updateWave (m) {
+        let t = m * 4
+        this.waveCycles -= t
+
+        while (this.waveCycles <= 2) {
+            this.wavePosition += 1;
+            if (this.wavePosition >= 32) this.wavePosition -= 32
+            this.waveSampleTime = this.APU.ngb.TIMER.total_m * 4 - 2 + this.waveCycles
+            this.waveCycles += this.wavePeriod
+        }
+    }
+
 }
 
 class Channel4 {

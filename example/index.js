@@ -36,10 +36,10 @@ window.onload = function () {
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/06-overflow on trigger.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/07-len sweep period sync.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/08-len ctr during power.gb', () => { console.log('rom loaded') })
-    emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/09-wave read while on.gb', () => { console.log('rom loaded') })
+    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/09-wave read while on.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/10-wave trigger while on.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/11-regs after power.gb', () => { console.log('rom loaded') })
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/12-wave write while on.gb', () => { console.log('rom loaded') })
+    emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/12-wave write while on.gb', () => { console.log('rom loaded') })
     // games
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Super+Mario+Land+(JUE)+(V1.1)+%5B!%5D.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pokemon+Red+(UE)+%5BS%5D%5B!%5D.gb', () => { console.log('rom loaded') })
