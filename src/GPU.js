@@ -73,15 +73,13 @@ class GPU {
         this.sprite_sorted = []
         this.bg_alpha_map = Array(160 * 144).fill(0)
         this.tilemap_index = [[], []]
-        //
-        this.headless = false
-    }
-
-    setHeadless () {
-        this.headless = true
-        this.scrn = { data: [] }
-        for (let i = 0; i < 160 * 144 * 4; i++)
-            this.scrn.data[i] = 255;
+        // reset headless
+        this.headless = this.ngb.mode?.startsWith('headless')
+        if (this.headless) {
+            this.scrn = { data: [] }
+            for (let i = 0; i < 160 * 144 * 4; i++)
+                this.scrn.data[i] = 255;
+        }
     }
 
     connect_canvas (c) {

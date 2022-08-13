@@ -47,7 +47,7 @@ class APU {
         this.channel3 = new Channel3(this, 3, audioContext);
         this.channel4 = new Channel4(this, 4, audioContext);
 
-        this.mCycle = 0
+        // this.mCycle = 0
 
         this.reset()
     }
@@ -62,23 +62,24 @@ class APU {
         this.channel2.init()
         this.channel3.init()
         this.channel4.init()
-        // this.mCycle = 0
+        this.mCycle = 0
         this.frame = 7
     }
 
     step (m) {
-        // if (this.enabled == false) return;
         const clockTicks = 2048;
         const framesCount = 8
         this.mCycle += m
+
         if (this.channel3.playing) this.channel3.updateWave(m)
 
         if (this.mCycle >= clockTicks) {
             this.mCycle -= clockTicks
+            // Even if APU is not enabled, it still clocks
             if (this.enabled == false) return;
             this.frame = (this.frame + 1) % framesCount
             switch (this.frame) {
-                case 2: case 6: this.updateSweep(); /* Fallthrough. */
+                case 2: case 6: this.updateSweep(); // Fallthrough
                 case 0: case 4: this.updateLength(); break;
                 case 7: this.updateEnvelope(); break;
                 case 1: case 3: case 5: break;
@@ -105,7 +106,7 @@ class APU {
         this.channel4.updateEnvelope()
     }
 
-    setSoundFlag (channel, value) {
+    setChannelStatus (channel, value) {
         let mask = 0xFF - (1 << (channel - 1));
         value = value << (channel - 1)
         this.reg.NR52 &= mask;
@@ -159,6 +160,9 @@ class APU {
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
                 if (this.channel3.playing) {
+                    // If the wave channel is playing, and the byte is read from the sample position.
+                    // On DMG, this is only allowed if the read occurs exactly when
+                    // it is being accessed by the Wave channel.
                     if (this.channel3.waveSampleTime == this.ngb.TIMER.total_m * 4) {
                         return this.channel3.waveRam[this.channel3.wavePosition >> 1]
                     } else {
@@ -237,7 +241,7 @@ class APU {
                 frequency |= (val & 7) << 8;
                 this.channel1.setFrequency(frequency);
                 this.channel1.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
-                if (val & 0x80) this.channel1.play();
+                if (val & 0x80) this.channel1.trigger();
                 break;
 
             // Channel 2 addresses
@@ -274,7 +278,7 @@ class APU {
                 frequency |= (val & 7) << 8;
                 this.channel2.setFrequency(frequency);
                 this.channel2.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
-                if (val & 0x80) this.channel2.play();
+                if (val & 0x80) this.channel2.trigger();
                 break;
 
             // Channel 3 addresses
@@ -305,13 +309,16 @@ class APU {
                 frequency |= (val & 7) << 8;
                 this.channel3.setFrequency(frequency);
                 this.channel3.setLengthCheck((val & 0x40) ? true : false, (val & 0x80) ? true : false);
-                if (val & 0x80) this.channel3.play();
+                if (val & 0x80) this.channel3.trigger();
 
                 break;
             // channel 3 wave bytes
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37:
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F:
                 if (this.channel3.playing) {
+                    // If the wave channel is playing, and the byte is written to the sample position.
+                    // On DMG, this is only allowed if the write occurs exactly when
+                    // it is being accessed by the Wave channel.
                     if (this.channel3.waveSampleTime == this.ngb.TIMER.total_m * 4) {
                         this.channel3.waveRam[this.channel3.wavePosition >> 1] = val
                         this.channel3.setWaveBufferByte(this.channel3.wavePosition >> 1, val);
@@ -349,7 +356,7 @@ class APU {
             case 0xFF23: // NR44 - Channel 4 Counter/consecutive; Inital (R/W)
                 this.channel4.reg.NR44 = val
                 this.channel4.setLengthCheck((val & 0x40) ? true : false);
-                if (val & 0x80) this.channel4.play();
+                if (val & 0x80) this.channel4.trigger();
                 break;
 
             // general audio switch
@@ -363,15 +370,14 @@ class APU {
                 this.reg.NR52 = val & 0xF0
                 let enabled = (val & 0x80) == 0 ? false : true;
                 if (this.enabled && !enabled) { // turn-off APU
-                    // console.log('turn-off APU')
-                    this.channel1.disable()
-                    this.channel2.disable()
-                    this.channel3.disable()
-                    this.channel4.disable()
+                    // todo: determine whether we should use .stop() or .mute() here
+                    this.channel1.stop()
+                    this.channel2.stop()
+                    this.channel3.stop()
+                    this.channel4.stop()
                     this.reset()
                 }
                 if (!this.enabled && enabled) { // turn-on APU
-                    // console.log('turn-on APU')
                     this.frame = 7
                 }
                 this.enabled = enabled
@@ -438,32 +444,29 @@ class Channel12 {
         this.oscillator = oscillator;
     }
 
-    play () {
+    trigger () {
         this.playing = true;
-        this.APU.setSoundFlag(this.channelNumber, 1);
+        this.APU.setChannelStatus(this.channelNumber, 1);
         this.gainNode.connect(this.audioContext.destination);
+
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
-            // console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it, if the next frame is not length check
             if (this.lengthCheck && (this.APU.frame & 1) == 0) {
-                // console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
+
         // sweep
         this.sweepTimer = this.sweepPeriod ? this.sweepPeriod : 8;
         this.sweepEnabled = this.sweepShifts || this.sweepPeriod
         this.sweepFrequency = this.frequency
         this.sweepCalculatedSubtract = false
-        // console.log('sweep:', this.sweepEnabled)
         if (this.sweepShifts) {
-            if (this.calcSweepFreq() > 0x7FF) {
-                // console.log('of')
-                this.stop();
-            }
+            if (this.calcSweepFreq() > 0x7FF) this.stop();
         }
+
         // envelope
         this.setEnvelopeVolume(this.envelopeInitialVolume)
         this.envelopeTimer = this.envelopePeriod ? this.envelopePeriod : 8
@@ -472,6 +475,7 @@ class Channel12 {
         if ((this.APU.frame + 1) == 7) {
             this.envelopeTimer += 1
         }
+
         // disable the channel if the DAC is disabled
         if (this.channelNumber == 1 && (this.reg.NR12 >> 3) == 0)
             this.stop()
@@ -481,7 +485,7 @@ class Channel12 {
 
     stop () {
         this.playing = false;
-        this.APU.setSoundFlag(this.channelNumber, 0);
+        this.APU.setChannelStatus(this.channelNumber, 0);
         this.gainNode.disconnect();
     };
 
@@ -505,7 +509,6 @@ class Channel12 {
         if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length check when the next frame is not length check will result in extra clock
             if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
-                // console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
                 if (this.soundLength == 0 && !triggering) {
                     this.stop();
@@ -520,11 +523,11 @@ class Channel12 {
         this.gainNode.gain.value = this.envelopeVolume * 1 / 100;
     };
 
-    disable () {
+    mute () {
         this.oscillator.disconnect();
     };
 
-    enable () {
+    unmute () {
         this.oscillator.connect(this.gainNode);
     };
 
@@ -535,10 +538,8 @@ class Channel12 {
         if (this.sweepTimer == 0) {
             if (this.sweepPeriod) {
                 this.sweepTimer = this.sweepPeriod // reload sweep timer
-                // console.log('updateSweep')
                 let newFreq = this.calcSweepFreq(); // calc new freq
                 if (newFreq > 0x7FF) {
-                    // console.log('of')
                     this.stop();
                 } else {
                     if (this.sweepShifts) {
@@ -550,10 +551,7 @@ class Channel12 {
                         this.sweepFrequency = newFreq
 
                         newFreq = this.calcSweepFreq(); // calc freq again
-                        if (newFreq > 0x7FF) {
-                            // console.log('of')
-                            this.stop();
-                        }
+                        if (newFreq > 0x7FF) this.stop();
                     }
                 }
             } else {
@@ -565,9 +563,7 @@ class Channel12 {
     updateLength () {
         if (this.lengthCheck && this.soundLength > 0) {
             this.soundLength--;
-            // console.log('len check:', this.soundLength, 'cy:', this.APU.ngb.TIMER.total_m * 4)
             if (this.soundLength == 0) {
-                // console.log('stopped by length check')
                 this.stop();
             }
         }
@@ -648,27 +644,26 @@ class Channel3 {
         this.bufferSource = bufferSource;
     }
 
-    play () {
+    trigger () {
         this.playing = true;
-        this.APU.setSoundFlag(this.channelNumber, 1);
+        this.APU.setChannelStatus(this.channelNumber, 1);
         this.waveBuffer.copyToChannel(this.buffer, 0, 0);
 
         this.gainNode.connect(this.audioContext.destination);
 
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
-            // console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it, if the next frame is not length check
             if (this.lengthCheck && (this.APU.frame & 1) == 0) {
-                // console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
 
         // wave
         if (this.wavePlaying) {
-            if (this.waveCycles == 4) {
+            // Triggering the wave channel while it is already playing will corrupt the wave RAM on DMG.
+            if (this.waveCycles == 4) { // offset by 4 t-cycles
                 let position = (this.wavePosition + 1) & 31;
                 let byte = this.waveRam[position >> 1];
                 switch (position >> 3) {
@@ -687,9 +682,8 @@ class Channel3 {
             }
         }
         this.wavePosition = 0
-        this.waveCycles = this.wavePeriod + 8
+        this.waveCycles = this.wavePeriod + 8 // delay trigger by 8 t-cycles
         this.wavePlaying = true
-
 
         // disable the channel if the DAC is disabled
         if ((this.reg.NR30 >> 7) == 0) this.stop()
@@ -698,7 +692,7 @@ class Channel3 {
     stop () {
         this.playing = false;
         this.wavePlaying = false
-        this.APU.setSoundFlag(this.channelNumber, 0);
+        this.APU.setChannelStatus(this.channelNumber, 0);
         this.gainNode.disconnect();
     };
 
@@ -722,7 +716,6 @@ class Channel3 {
         if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length check when the next frame is not length check will result in extra clock
             if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
-                // console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
                 if (this.soundLength == 0 && !triggering) {
                     this.stop();
@@ -739,27 +732,25 @@ class Channel3 {
         this.buffer[bufferIndex + 1] = (value & 0x0F) / 8 - 1;
     };
 
-    disable () {
+    mute () {
         this.bufferSource.disconnect();
     };
 
-    enable () {
+    unmute () {
         this.bufferSource.connect(this.gainNode);
     };
 
     updateLength () {
         if (this.lengthCheck && this.soundLength > 0) {
             this.soundLength--;
-            // console.log('len check:',this.soundLength)
             if (this.soundLength == 0) {
-                // console.log('stopped by length check')
                 this.stop();
             }
         }
     }
 
     updateWave (m) {
-        let t = m * 4
+        let t = m * 4 // t-cycles
         this.waveCycles -= t
 
         while (this.waveCycles <= 2) {
@@ -803,17 +794,15 @@ class Channel4 {
         this.envelopeVolume = 0
     }
 
-    play () {
+    trigger () {
         this.playing = true;
-        this.APU.setSoundFlag(this.channelNumber, 1);
+        this.APU.setChannelStatus(this.channelNumber, 1);
 
         // If length counter is zero, it is set to max
         if (this.soundLength <= 0) {
-            // console.log('If length counter is zero, it is set to max')
             this.setLength(0)
             // Trigger that un-freezes enabled length should clock it, if the next frame is not length check
             if (this.lengthCheck && (this.APU.frame & 1) == 0) {
-                // console.log('Trigger that un-freezes enabled length should clock it. Current frame:', this.APU.frame)
                 this.soundLength--;
             }
         }
@@ -824,15 +813,13 @@ class Channel4 {
 
     stop () {
         this.playing = false;
-        this.APU.setSoundFlag(this.channelNumber, 0);
+        this.APU.setChannelStatus(this.channelNumber, 0);
     };
 
     updateLength () {
         if (this.lengthCheck && this.soundLength > 0) {
             this.soundLength--;
-            // console.log('len check:',this.soundLength)
             if (this.soundLength == 0) {
-                // console.log('stopped by length check')
                 this.stop();
             }
         }
@@ -869,7 +856,6 @@ class Channel4 {
         if ((!this.lengthCheck) && enabled) { // if enabling length check
             // Enabling length check when the next frame is not length check will result in extra clock
             if ((this.APU.frame & 1) == 0 && this.soundLength > 0) {
-                // console.log('Enabling length in first half of length period should clock length. Current frame:', this.APU.frame)
                 this.soundLength--;
                 if (this.soundLength == 0 && !triggering) {
                     this.stop();
@@ -879,10 +865,10 @@ class Channel4 {
         this.lengthCheck = enabled
     }
 
-    disable () {
+    mute () {
     };
 
-    enable () {
+    unmute () {
     };
 }
 
