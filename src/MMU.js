@@ -23,6 +23,7 @@ class MMU {
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
         this.rom = ''
+        this.romBankCount = 0
         this.TIMER = this.ngb.TIMER
         this.GPU = this.ngb.GPU
         this.CPU = this.ngb.CPU
@@ -45,16 +46,14 @@ class MMU {
     }
 
     load_rom_ajax (url, cb) {
-        var req = new XMLHttpRequest();
+        let req = new XMLHttpRequest();
         req.open("GET", url, true);
         req.responseType = "arraybuffer";
-        let mmu = this
-        req.onload = function () {
-            var arrayBuffer = req.response;
+        req.onload = () => {
+            let arrayBuffer = req.response;
             if (arrayBuffer) {
-                var byteArray = new Uint8Array(arrayBuffer);
-                mmu.rom = byteArray
-                mmu.carttype = mmu.rom[0x0147]
+                let byteArray = new Uint8Array(arrayBuffer);
+                this.loadRom(byteArray)
                 if (cb) cb()
             } else {
                 console.log('AJAX load rom error!')
@@ -70,8 +69,23 @@ class MMU {
         for (let i = 0; i < b.length; i++) {
             rom.push(b.charCodeAt(i) & 0xff)
         }
+        this.loadRom(rom)
+    }
+
+    loadRom (rom) {
         this.rom = rom
-        this.carttype = this.rom[0x0147]
+        switch (this.rom[0x0147]) {
+            case 0:
+                this.carttype = 0;
+                break;
+            case 1: case 2: case 3:
+                this.carttype = 1;
+                break;
+            default:
+                this.carttype = 0;
+        }
+        this.romBankCount = Math.ceil(this.rom.length / 0x4000)
+        // console.log('0x0147:', this.rom[0x0147], 'carttype', this.carttype)
         // console.log('MMU', 'ROM loaded, ' + this.rom.length + ' bytes.')       
     }
 
@@ -180,8 +194,9 @@ class MMU {
                         val &= 0x1F
                         if (!val) val = 1
                         this.mbc[1].rombank |= val
-                        this.romoffs = this.mbc[1].rombank * 0x4000
+                        this.romoffs = (this.mbc[1].rombank % this.romBankCount) * 0x4000
                         // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
+                        // console.log('switch to rom bank:', this.mbc[1].rombank)
                         break
                 }
                 break

@@ -1,7 +1,7 @@
 import ngb from '../src/ngb';
 
 window.onload = function () {
-    var emu = new ngb();
+    let emu = new ngb();
     window.emu=emu
     emu.GPU.connect_canvas(document.getElementById('screen'))
     document.getElementById('run_button').onclick = function () {
@@ -27,7 +27,7 @@ window.onload = function () {
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/opus2.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/opus5.gb', () => { console.log('rom loaded') })
     // dmg_sound
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/dmg_sound.gb', () => { console.log('rom loaded') })
+    emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/dmg_sound.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/01-registers.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/02-len ctr.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/03-trigger.gb', () => { console.log('rom loaded') })
@@ -39,7 +39,7 @@ window.onload = function () {
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/09-wave read while on.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/10-wave trigger while on.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/11-regs after power.gb', () => { console.log('rom loaded') })
-    emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/12-wave write while on.gb', () => { console.log('rom loaded') })
+    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/12-wave write while on.gb', () => { console.log('rom loaded') })
     // games
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Super+Mario+Land+(JUE)+(V1.1)+%5B!%5D.gb', () => { console.log('rom loaded') })
     // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pokemon+Red+(UE)+%5BS%5D%5B!%5D.gb', () => { console.log('rom loaded') })

@@ -216,7 +216,7 @@ class APU {
                 this.channel1.envelopePeriod = (val & 0x07);
                 // disabling DAC should disable the channel immediately
                 if ((val >> 3) == 0) {
-                    this.setSoundFlag(1, 0)
+                    this.channel1.stop()
                 } else {
                     if (this.channel1.envelopePeriod == 0 && this.channel1.envelopeAutomatic) {
                         this.channel1.setEnvelopeVolume((this.channel1.envelopeVolume + 1) & 15)
@@ -249,11 +249,16 @@ class APU {
             case 0xFF17: // NR22 - Channel 2 Volume Envelope (R/W)
                 this.channel2.reg.NR22 = val
                 this.channel2.envelopeSign = (val & 0x08) ? 1 : -1;
-                let envelopeVolume = (val & 0xF0) >> 4;
-                this.channel2.setEnvelopeVolume(envelopeVolume);
+                this.channel2.envelopeInitialVolume = (val & 0xF0) >> 4;
                 this.channel2.envelopePeriod = (val & 0x07);
                 // disabling DAC should disable the channel immediately
-                if ((val >> 3) == 0) this.setSoundFlag(2, 0);
+                if ((val >> 3) == 0) {
+                    this.channel2.stop()
+                } else {
+                    if (this.channel2.envelopePeriod == 0 && this.channel2.envelopeAutomatic) {
+                        this.channel2.setEnvelopeVolume((this.channel2.envelopeVolume + 1) & 15)
+                    }
+                }
                 break;
             case 0xFF18: // NR23 - Channel 2 Frequency lo data (W)
                 this.channel2.reg.NR23 = val
@@ -325,9 +330,17 @@ class APU {
                 break;
             case 0xFF21: // NR42 - Channel 4 Volume Envelope (R/W)
                 this.channel4.reg.NR42 = val
-                // todo implementation
+                this.channel4.envelopeSign = (val & 0x08) ? 1 : -1;
+                this.channel4.envelopeInitialVolume = (val & 0xF0) >> 4;
+                this.channel4.envelopePeriod = (val & 0x07);
                 // disabling DAC should disable the channel immediately
-                if ((val >> 3) == 0) this.setSoundFlag(4, 0);
+                if ((val >> 3) == 0) {
+                    this.channel4.stop()
+                } else {
+                    if (this.channel4.envelopePeriod == 0 && this.channel4.envelopeAutomatic) {
+                        this.channel4.setEnvelopeVolume((this.channel4.envelopeVolume + 1) & 15)
+                    }
+                }
                 break;
             case 0xFF22: // NR43 - Channel 4 Polynomial Counter (R/W)
                 // todo
@@ -781,6 +794,13 @@ class Channel4 {
 
         this.soundLength = 64; // defaults to 64 periods
         this.lengthCheck = false;
+
+        this.envelopePeriod = 0;
+        this.envelopeTimer = 0;
+        this.envelopeSign = 1;
+        this.envelopeAutomatic = false;
+        this.envelopeInitialVolume = 0;
+        this.envelopeVolume = 0
     }
 
     play () {
@@ -818,7 +838,27 @@ class Channel4 {
         }
     }
 
+    setEnvelopeVolume (volume) {
+        this.envelopeVolume = volume;
+    };
+
     updateEnvelope () {
+        if (this.envelopePeriod) {
+            if (this.envelopeAutomatic) {
+                this.envelopeTimer -= 1
+                if (this.envelopeTimer == 0) {
+                    this.envelopeTimer = this.envelopePeriod
+                    let volume = this.envelopeVolume + this.envelopeSign
+                    if (volume < 15 && volume >= 0) {
+                        this.setEnvelopeVolume(volume)
+                    } else {
+                        this.envelopeAutomatic = false
+                    }
+                }
+            }
+        } else {
+            this.envelopeTimer = 8
+        }
     }
 
     setLength (value) {

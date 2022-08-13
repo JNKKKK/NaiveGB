@@ -49,8 +49,8 @@ class ngb {
         this.APU.init()
         this.APU.skip_bios()
 
-        var frame = () => {
-            var t0 = new Date();
+        let frame = () => {
+            let t0 = new Date(), t1;
             do {
                 this.CPU.exec()
                 if (this.CPU.stop) break
@@ -58,7 +58,7 @@ class ngb {
             } while (this.TIMER.total_mdebug < 17556)
             this.TIMER.total_mdebug = 0
             do {
-                var t1 = new Date();
+                t1 = new Date();
             } while ((t1 - t0) / 1000 < (1 / 62))
             document.getElementById('fps').innerHTML = Math.round(1000 / (t1 - t0))
         }
@@ -90,7 +90,7 @@ class ngb {
 
     run () {
         if (this.mode == 'headless') {
-            this.CPU.TRACELOG = true
+            // this.CPU.TRACELOG = true
             this.run_headless_blocking()
         }
         else if (this.mode == 'headless-non-blocking') {
