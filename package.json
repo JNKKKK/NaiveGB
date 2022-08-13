@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "web": "npx parcel example/index.html",
+    "web": "npx parcel web/index.html",
     "build": "npx parcel build",
     "build-dev": "npx parcel build --no-optimize",
     "headless": "npx parcel build --no-optimize && node dist/headless/headless.js",
@@ -12,7 +12,7 @@
   },
   "targets": {
     "frontend": {
-      "source": "example/index.html"
+      "source": "web/index.html"
     },
     "headless": {
       "source": "src/headless.js",
