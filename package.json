@@ -21,14 +21,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JNKKKK/NaiveGBC.git"
+    "url": "git+https://github.com/JNKKKK/NaiveGB.git"
   },
   "author": "Enkai Ji",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/JNKKKK/NaiveGBC/issues"
+    "url": "https://github.com/JNKKKK/NaiveGB/issues"
   },
-  "homepage": "https://github.com/JNKKKK/NaiveGBC#readme",
+  "homepage": "https://github.com/JNKKKK/NaiveGB#readme",
   "devDependencies": {
     "@babel/core": "^7.18.9",
     "@babel/preset-env": "^7.18.9",

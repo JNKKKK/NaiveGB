@@ -12,13 +12,6 @@ window.onload = function () {
 
     window.onkeydown = (e) => emu.JOYPAD.keydown(e);
     window.onkeyup = (e) => emu.JOYPAD.keyup(e);
-
-
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Super+Mario+Land+(JUE)+(V1.1)+%5B!%5D.gb', () => { console.log('rom loaded');emu.run() })
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pokemon+Red+(UE)+%5BS%5D%5B!%5D.gb', () => { console.log('rom loaded');emu.run() })
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Pac-Man+(U)+(Namco).gb', () => { console.log('rom loaded');emu.run() })
-    // emu.MMU.load_rom_ajax('https://static-host000.s3.amazonaws.com/Hoshi no Kirby (Japan).gb', () => { console.log('rom loaded');emu.run() })
-
 }
 
 function reset () {
@@ -30,6 +23,10 @@ function run () {
     if (running) reset()
 
     let romUri = document.getElementById('rom').value
+    
+    // romUri = 'https://static-host000.s3.amazonaws.com/games/Hoshi no Kirby (Japan).gb'
+    // romUri = 'https://static-host000.s3.amazonaws.com/games/Super+Mario+Land+(JUE)+(V1.1)+%5B!%5D.gb'
+    // romUri = 'https://static-host000.s3.amazonaws.com/games/Pac-Man+(U)+(Namco).gb'
 
     emu.MMU.load_rom_ajax(romUri, () => {
         console.log('rom loaded');

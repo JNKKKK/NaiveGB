@@ -1,1 +1,1 @@
-# NaiveGB
+# Naive Gameboy
