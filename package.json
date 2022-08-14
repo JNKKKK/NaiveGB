@@ -12,7 +12,8 @@
   },
   "targets": {
     "frontend": {
-      "source": "web/index.html"
+      "source": "web/index.html",
+      "distDir": "./doc"
     },
     "headless": {
       "source": "src/headless.js",
