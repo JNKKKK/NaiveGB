@@ -7,12 +7,16 @@ A Gameboy emulator written in JS.
 ## Motivation
 The purpose of this project is mostly educational. The goal is to make this project a good reference for others who are learning about GameBoy or planning to create their own GameBoy emulator. We aim at making the code simple to understand as much as possible, and at the same time, accurate enough to emulate most of the behaviour correctly.
 
-## Run in the browser
+## Run in the Browser
+It is available [here](https://jnkkkk.github.io/NaiveGB/). It is built in folder `/docs` and hosted by Github Pages.
 
+Please note that due to copyright protection, only the Blargg's test roms are available to run in the web app. You will need to supply you own roms if you want to run something else.
+
+**Run locally in the browser:**
 ```
 npm run web
 ```
-Keys:
+**Keys:**
 | Action | Key |
 | --- | --- |
 | B | <kbd>Z</kbd> |
@@ -24,7 +28,7 @@ Keys:
 | START | <kbd>Enter</kbd> |
 | SELECT | <kbd>Space</kbd> |
 
-## Run in the terminal (headless mode)
+## Run in the Terminal (headless mode)
 
 ```
 npm run headless
@@ -65,10 +69,26 @@ Milestone 2.0:
 
 
 
-## How to contribute
+## How to Contribute
 1. Make changes and see live update in browser `npm run web`
 2. Make sure the tests pass. `npm run test`
 3. Build the web application. `npm run build`
+
+## Folder Structure
+```
+/src
+ The emulator source code. The emulator itself is a class and can be imported in any web applications.
+ 
+/testROMs
+ All the Blargg's test rooms
+ 
+/web
+ A web app imports ngb class
+ 
+/docs
+ The build artifact of the web app. It also hosts the Github Page
+```
+
 
 ## Reference
 - [BinjGB](https://github.com/binji/binjgb). The emulator I refered most to when working on NaiveGB
