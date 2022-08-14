@@ -13,7 +13,8 @@
   "targets": {
     "frontend": {
       "source": "web/index.html",
-      "distDir": "./doc"
+      "distDir": "./docs",
+      "publicUrl" : "/NaiveGB"
     },
     "headless": {
       "source": "src/headless.js",
