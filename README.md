@@ -2,15 +2,17 @@
 
 A Gameboy emulator written in JS.
 
+[Demo](https://jnkkkk.github.io/NaiveGB/)
+
 ![banner](https://github.com/JNKKKK/NaiveGB/raw/master/banner.png)
 
 ## Motivation
 The purpose of this project is mostly educational. The goal is to make this project a good reference for others who are learning about GameBoy or planning to create their own GameBoy emulator. We aim at making the code simple to understand as much as possible, and at the same time, accurate enough to emulate most of the behaviour correctly.
 
 ## Run in the Browser
-It is available [here](https://jnkkkk.github.io/NaiveGB/). It is built in folder `/docs` and hosted by Github Pages.
+Try it out [here](https://jnkkkk.github.io/NaiveGB/). The web app is built under folder [`/docs`](https://github.com/JNKKKK/NaiveGB/tree/master/docs) and hosted by Github Pages.
 
-Please note that due to copyright protection, only the Blargg's test roms are available to run in the web app. You will need to supply you own roms if you want to run something else.
+Please note that due to copyright protection, only the Blargg's test roms are available to run in the web app. You will need to supply you own roms if you want to run anything else.
 
 **Run locally in the browser:**
 ```
@@ -21,10 +23,7 @@ npm run web
 | --- | --- |
 | B | <kbd>Z</kbd> |
 | A | <kbd>X</kbd> |
-| UP | <kbd>↑</kbd> |
-| DOWN | <kbd>↓</kbd> |
-| LEFT | <kbd>←</kbd> |
-| RIGHT | <kbd>→</kbd> |
+| UP,DOWN,LEFT,RIGHT | <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> |
 | START | <kbd>Enter</kbd> |
 | SELECT | <kbd>Space</kbd> |
 
@@ -33,7 +32,7 @@ npm run web
 ```
 npm run headless
 ```
-Note that in this mode, there is no graphic output. In the terminal, you will only see the serial output from `FF01` I/O port (FF01 - SB - Serial transfer data (R/W)).
+Note that in this mode, there is **NO graphic output**. In the terminal, you will only see the serial output from `FF01` I/O port (FF01 - SB - Serial transfer data (R/W)).
 
 ## Test
 ```
@@ -60,7 +59,7 @@ Milestone 1.0:
 - [ ] Pass `oam_bug` test roms
 - [ ] Make MBC1 implementation robust
 - [ ] Support MBC2, MBC3
-- [ ] Fix WAVE channel issue
+- [ ] Fix WAVE channel sound issue
 - [ ] Support noise channel
 - [ ] Test more game roms
 
