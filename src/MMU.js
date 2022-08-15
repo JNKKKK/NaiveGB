@@ -140,7 +140,7 @@ class MMU {
                     // Zeropage RAM, I/O, interrupts
                     case 0xF00:
                         if (addr == 0xFFFF) {
-                            return this.ie
+                            return this.ie | 0xe0
                         }
                         else if (addr > 0xFF7F) {
                             return this.zram[addr & 0x7F]
@@ -152,7 +152,7 @@ class MMU {
                                         return this.JOYPAD.rb();    // JOYP
                                     case 4: case 5: case 6: case 7: // FF04/5/6/7
                                         return this.TIMER.rb(addr)
-                                    case 15: return this.if;    // FF0F Interrupt flags
+                                    case 15: return this.if | 0xe0;    // FF0F Interrupt flags
                                     default: return 0
                                 }
 
@@ -274,7 +274,7 @@ class MMU {
                     // Zeropage RAM, I/O, interrupts
                     case 0xF00:
                         if (addr == 0xFFFF) {
-                            this.ie = val
+                            this.ie = val & 0x1f
                         }
                         else if (addr > 0xFF7F) {
                             this.zram[addr & 0x7F] = val
@@ -304,7 +304,7 @@ class MMU {
                                     case 4: case 5: case 6: case 7: // FF04/5/6/7
                                         this.TIMER.wb(addr, val);
                                         break
-                                    case 15: this.if = val; break // FF0F
+                                    case 15: this.if = val & 0x1f; break // FF0F
                                 }
                                 break
 

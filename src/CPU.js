@@ -16,6 +16,7 @@ class CPU {
             ime: 0
         }
         this.halt = 0
+        this.halt_bug = false
         this.stop = 0
         // Make instruction table
         this.instructions = Array(16 * 16 * 2).fill(undefined)
@@ -55,7 +56,7 @@ class CPU {
             let r1b = regCode[r1]
             this.instructions[(r1b << 3) + 0b110] = () => {
                 if (this.TRACELOG) this.debugger.tracelog(1, 'ld', r1, this.MMU.rb(this.reg.pc + 1).toString(10))
-                this.reg.pc += 1
+                this.increment_pc(1)
                 this.reg[r1] = this.MMU.rb(this.reg.pc)
                 this.TIMER.step(2)
             }
@@ -83,7 +84,7 @@ class CPU {
         // (HL) <- n
         this.instructions[0b110110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'ld', '[hl]', this.MMU.rb(this.reg.pc + 1).toString(16))
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(2)
             this.MMU.wb((this.reg.h << 8) + this.reg.l, this.MMU.rb(this.reg.pc))
             this.TIMER.step(1)
@@ -119,7 +120,7 @@ class CPU {
         // A <- (n)
         this.instructions[0b11110000] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'ldh', 'a', `[$ff${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(2)
             this.reg.a = this.MMU.rb(0xff00 + this.MMU.rb(this.reg.pc))
             this.TIMER.step(1)
@@ -127,7 +128,7 @@ class CPU {
         // (n) <- A
         this.instructions[0b11100000] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'ldh', `[$ff${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`, 'a')
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(2)
             this.MMU.wb(0xff00 + this.MMU.rb(this.reg.pc), this.reg.a)
             this.TIMER.step(1)
@@ -136,18 +137,18 @@ class CPU {
         this.instructions[0b11111010] = () => {
             if (this.TRACELOG) this.debugger.tracelog(2, 'ld', 'a', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`)
             this.TIMER.step(3)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.reg.a = this.MMU.rb(this.MMU.rw(this.reg.pc))
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(1)
         }
         // (nn) <- A
         this.instructions[0b11101010] = () => {
             if (this.TRACELOG) this.debugger.tracelog(2, 'ld', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`, 'a')
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(3)
             this.MMU.wb(this.MMU.rw(this.reg.pc), this.reg.a)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(1)
         }
         // A ← (HL) HL ← HL+1
@@ -223,9 +224,9 @@ class CPU {
             let r1b = regddCode[r1]
             this.instructions[(r1b << 4) + 0b1] = () => {
                 if (this.TRACELOG) this.debugger.tracelog(2, 'ld', r1, this.MMU.rw(this.reg.pc + 1).toString(10))
-                this.reg.pc += 1
+                this.increment_pc(1)
                 this.reg[r1.charAt(1)] = this.MMU.rb(this.reg.pc)
-                this.reg.pc += 1
+                this.increment_pc(1)
                 this.reg[r1.charAt(0)] = this.MMU.rb(this.reg.pc)
                 this.TIMER.step(3)
             }
@@ -233,9 +234,9 @@ class CPU {
         // sp ← nn
         this.instructions[0b110001] = () => {
             if (this.TRACELOG) this.debugger.tracelog(2, 'ld', 'sp', this.MMU.rw(this.reg.pc + 1).toString(10))
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.reg.sp = this.MMU.rw(this.reg.pc)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(3)
         }
         // SP ← HL
@@ -272,7 +273,7 @@ class CPU {
         // HL ← SP+e
         this.instructions[0b11111000] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'ld', 'hl')
-            this.reg.pc += 1
+            this.increment_pc(1)
             let e = this.MMU.rb(this.reg.pc)
             if (e > 127) e = -((~e + 1) & 255)
             let z = 0, n = 0, h = ((this.reg.sp & 0xF) + e) > 0xF ? 1 : 0, c = ((this.reg.sp & 0xFF) + e) > 0xFF ? 1 : 0
@@ -290,10 +291,10 @@ class CPU {
         // LD (nn), SP   (nn) ← SPL   (nnH) ← SPH
         this.instructions[0b1000] = () => {
             if (this.TRACELOG) this.debugger.tracelog(2, 'ld', `[$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}]`, 'sp')
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.MMU.wb(this.MMU.rw(this.reg.pc), this.reg.sp & 0xff)
             this.MMU.wb(this.MMU.rw(this.reg.pc) + 1, this.reg.sp >> 8)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.TIMER.step(5)
         }
 
@@ -322,7 +323,7 @@ class CPU {
         // A ← A + n
         this.instructions[0b11000110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'add', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
             this.reg.a += d8
@@ -370,7 +371,7 @@ class CPU {
         // A ← A+n+CY
         this.instructions[0b11001110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'adc', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
             this.reg.a += d8
@@ -419,7 +420,7 @@ class CPU {
         // A ← A - n
         this.instructions[0b11010110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'sub', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
             this.reg.a -= d8
@@ -467,7 +468,7 @@ class CPU {
         // A ← A-n-CY
         this.instructions[0b11011110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'suc', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
             this.reg.a -= d8
@@ -511,7 +512,7 @@ class CPU {
         // A ← A & n
         this.instructions[0b11100110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'and', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a &= d8
             let z = 0, n = 0, h = 1, c = 0
@@ -545,7 +546,7 @@ class CPU {
         // A ← A | n
         this.instructions[0b11110110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'or', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a |= d8
             let z = 0, n = 0, h = 0, c = 0
@@ -579,7 +580,7 @@ class CPU {
         // A ← A ^ n
         this.instructions[0b11101110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'xor', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             this.reg.a ^= d8
             let z = 0, n = 0, h = 0, c = 0
@@ -617,7 +618,7 @@ class CPU {
         // CP n
         this.instructions[0b11111110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(1, 'cp', 'a', this.MMU.rb(this.reg.pc + 1))
-            this.reg.pc += 1
+            this.increment_pc(1)
             let d8 = this.MMU.rb(this.reg.pc)
             let a = this.reg.a
             a -= d8
@@ -744,7 +745,7 @@ class CPU {
             let e = this.MMU.rb(this.reg.pc + 1)
             if (e > 127) e = -((~e + 1) & 255)
             if (this.TRACELOG) this.debugger.tracelog(1, 'add', 'sp', e)
-            this.reg.pc += 1
+            this.increment_pc(1)
             let z = 0, n = 0, h = ((this.reg.sp & 0xF) + e) > 0xF ? 1 : 0, c = ((this.reg.sp & 0xFF) + e) > 0xFF ? 1 : 0
             if (e < 0) {
                 h = ((this.reg.sp & 0xF) + e) < 0x0 ? 0 : 1
@@ -1141,7 +1142,7 @@ class CPU {
         // JP nn
         this.instructions[0b11000011] = () => {
             if (this.TRACELOG) this.debugger.tracelog(2, 'jp', `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.reg.pc = this.MMU.rw(this.reg.pc)
             this.reg.pc -= 1
             this.TIMER.step(4)
@@ -1150,13 +1151,13 @@ class CPU {
         for (let cc of [0, 1, 2, 3]) {
             this.instructions[(0b11 << 6) + (cc << 3) + 0b010] = () => {
                 if (this.TRACELOG) this.debugger.tracelog(2, 'jp', ccConditionLabel[cc], `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
-                this.reg.pc += 1
+                this.increment_pc(1)
                 if (ccCondition[cc](this.reg.f)) {
                     this.reg.pc = this.MMU.rw(this.reg.pc)
                     this.reg.pc -= 1
                     this.TIMER.step(4)
                 } else {
-                    this.reg.pc += 1
+                    this.increment_pc(1)
                     this.TIMER.step(3)
                 }
             }
@@ -1166,7 +1167,7 @@ class CPU {
             let e = this.MMU.rb(this.reg.pc + 1)
             if (e > 127) e = -((~e + 1) & 255);
             if (this.TRACELOG) this.debugger.tracelog(1, 'jr', `${e >= 0 ? '+' : ''}${e}`)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.reg.pc += e
             this.TIMER.step(3)
         }
@@ -1176,7 +1177,7 @@ class CPU {
                 let e = this.MMU.rb(this.reg.pc + 1)
                 if (e > 127) e = -((~e + 1) & 255);
                 if (this.TRACELOG) this.debugger.tracelog(1, 'jr', ccConditionLabel[cc], `${e >= 0 ? '+' : ''}${e}`)
-                this.reg.pc += 1
+                this.increment_pc(1)
                 if (ccCondition[cc](this.reg.f)) {
                     this.reg.pc += e
                     this.TIMER.step(3)
@@ -1198,7 +1199,7 @@ class CPU {
             if (this.TRACELOG) this.debugger.tracelog(2, 'call', `$${this.MMU.rb(this.reg.pc + 2).toString(16).padStart(2, '0')}${this.MMU.rb(this.reg.pc + 1).toString(16).padStart(2, '0')}`)
             this.reg.sp -= 2
             this.MMU.ww(this.reg.sp, this.reg.pc + 3)
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.reg.pc = this.MMU.rw(this.reg.pc)
             this.reg.pc -= 1
             this.TIMER.step(6)
@@ -1210,12 +1211,12 @@ class CPU {
                 if (ccCondition[cc](this.reg.f)) {
                     this.reg.sp -= 2
                     this.MMU.ww(this.reg.sp, this.reg.pc + 3)
-                    this.reg.pc += 1
+                    this.increment_pc(1)
                     this.reg.pc = this.MMU.rw(this.reg.pc)
                     this.reg.pc -= 1
                     this.TIMER.step(6)
                 } else {
-                    this.reg.pc += 2
+                    this.increment_pc(2)
                     this.TIMER.step(3)
                 }
             }
@@ -1336,6 +1337,9 @@ class CPU {
         this.instructions[0b01110110] = () => {
             if (this.TRACELOG) this.debugger.tracelog(0, 'halt')
             this.halt = 1
+            if ((!this.reg.ime) && (this.MMU.ie & this.MMU.if)) {
+                this.halt_bug = true
+            }
             this.TIMER.step(1)
         }
         // STOP
@@ -1343,17 +1347,23 @@ class CPU {
             if (this.TRACELOG) this.debugger.tracelog(0, 'stop')
             // this.stop = 1
             this.TIMER.step(1)
-            // console.log('STOP instruction')
         }
         // ____________________________________________________
         // 
         // CB Prefix
         // ____________________________________________________
         this.instructions[0xcb] = () => {
-            this.reg.pc += 1
+            this.increment_pc(1)
             this.instructions[0x100 + this.MMU.rb(this.reg.pc)]();
-            // this.TIMER.step(1)
         }
+    }
+
+    increment_pc (x) {
+        if (this.halt_bug) {
+            this.halt_bug = false
+            x -= 1
+        }
+        if (x > 0) this.reg.pc += x
     }
 
     reset () {
@@ -1361,8 +1371,8 @@ class CPU {
             this.reg[k] = 0
         }
         this.halt = 0
+        this.halt_bug = false
         this.stop = 0
-        // this.reg.ime = 1
         this.reg.ime = 0
     }
 
@@ -1390,7 +1400,6 @@ class CPU {
     }
 
     rst_interrupt (addr) {
-        // console.log('\nrst_interrupt: 0x',addr.toString('16'))
         this.reg.sp -= 2
         this.MMU.ww(this.reg.sp, this.reg.pc)
         this.reg.pc = addr
@@ -1446,13 +1455,13 @@ class CPU {
 
         let instr = this.MMU.rb(this.reg.pc)
 
-        if (typeof this.instructions[instr] === 'function') {
-            this.instructions[instr]()
-        } else {
+        if (typeof this.instructions[instr] !== 'function') {
             console.log('invalid instruction!', instr)
             this.stop = 1
             return
         }
+
+        this.instructions[instr]()
 
         this.reg.pc += 1
         this.reg.pc &= 0xffff
