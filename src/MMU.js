@@ -23,6 +23,7 @@ class MMU {
             0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
         ]
         this.rom = ''
+        this.romTitle = ''
         this.romBankCount = 0
         this.TIMER = this.ngb.TIMER
         this.GPU = this.ngb.GPU
@@ -91,6 +92,36 @@ class MMU {
         this.romBankCount = Math.ceil(this.rom.length / 0x4000)
         // console.log('0x0147:', this.rom[0x0147], 'carttype', this.carttype)
         // console.log('MMU', 'ROM loaded, ' + this.rom.length + ' bytes.')       
+        this.romTitle = String.fromCharCode(...this.rom.slice(0x134, 0x144)).trim()
+        this.loadERam()
+    }
+
+    saveERam () {
+        if (typeof window === 'undefined') return
+        switch (this.carttype) {
+            case 1:
+                window.localStorage.setItem(this.romTitle, JSON.stringify(this.eram))
+                console.log(`Saved to localStorage. Key:${this.romTitle}`)
+                break
+        }
+    }
+
+    loadERam () {
+        if (typeof window === 'undefined') return
+        if (![3].includes(this.rom[0x0147])) return
+
+        let eram
+        try {
+            eram = window.localStorage.getItem(this.romTitle)
+            if (eram) eram = JSON.parse(eram)
+        } catch (e) {
+            console.error(e)
+            return
+        }
+        if (eram) {
+            this.eram = eram
+            console.log('loaded ERAM')
+        }
     }
 
     rb (addr) {

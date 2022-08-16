@@ -14,10 +14,10 @@ class Joypad {
 
     rb () {
         switch (this.colidx) {
-            case 0x00: return 0x00
+            case 0x00: return 0xff
             case 0x10: return this.keys[0]
             case 0x20: return this.keys[1]
-            default: return 0x00
+            default: return 0xff
         }
     }
 
@@ -36,7 +36,6 @@ class Joypad {
             case 32: this.keys[0] &= 0xB; return false // space
             case 13: this.keys[0] &= 0x7; return false // enter
         }
-        // return false
     }
 
     keyup (e) {
@@ -50,7 +49,6 @@ class Joypad {
             case 32: this.keys[0] |= 0x5; return false
             case 13: this.keys[0] |= 0x8; return false
         }
-        // return false
     }
 }
 
