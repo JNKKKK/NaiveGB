@@ -48,14 +48,14 @@ Blargg's test roms
 | instr_timing | ✔️ |
 | mem_timing1 | ✔️ |
 | mem_timing2 | ✔️ |
-| interrupt_time | ❌ |
+| interrupt_time | ❌ (require CGB support) |
 | dmg_sound |✔️ |
-| halt_bug | ❌ |
+| halt_bug | ✔️ |
 | oam_bug | ❌ |
 
 ## Roadmap
 Milestone 1.0:
-- [ ] Pass `interrupt_time` and `halt_bug` test roms
+- [x] Pass `halt_bug` test roms
 - [ ] Pass `oam_bug` test roms
 - [ ] Make MBC1 implementation robust
 - [ ] Support MBC2, MBC3
@@ -64,6 +64,8 @@ Milestone 1.0:
 - [ ] Test more game roms
 
 Milestone 2.0:
+- [ ] Enable CGB support
+- [ ] Pass `interrupt_time` test
 - [ ] Interative web UI for debugging
 
 
