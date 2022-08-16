@@ -40,7 +40,10 @@ class MMU {
         this.ie = 0
         this.if = 0
         this.carttype = 0
-        this.mbc = [{}, { rombank: 0, rambank: 0, ramon: 0, mode: 0 }]
+        this.mbc = [
+            {},
+            { rombank: 0, rambank: 0, ramon: 0, mode: 0, maxRamBanks: 4 }, // not sure if we need to read maxRamBanks from 0149 - RAM Size
+        ]
         this.romoffs = 0x4000
         this.ramoffs = 0
     }
@@ -82,6 +85,7 @@ class MMU {
                 this.carttype = 1;
                 break;
             default:
+                console.log('Cartridge Type: 0x', this.rom[0x0147].toString(16), 'is not supported. Fallback to 0')
                 this.carttype = 0;
         }
         this.romBankCount = Math.ceil(this.rom.length / 0x4000)
@@ -192,10 +196,15 @@ class MMU {
                     case 1:
                         this.mbc[1].rombank &= 0x60
                         val &= 0x1F
+                        // When 00h is written, the MBC translates that to bank 01h also
                         if (!val) val = 1
+                        // the same happens for Bank 20h, 40h, and 60h. 
+                        // Any attempt to address these ROM Banks will select Bank 21h, 41h, and 61h instead.
+                        if (val == 0x20) val = 0x21
+                        if (val == 0x40) val = 0x41
+                        if (val == 0x60) val = 0x61
                         this.mbc[1].rombank |= val
                         this.romoffs = (this.mbc[1].rombank % this.romBankCount) * 0x4000
-                        // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
                         // console.log('switch to rom bank:', this.mbc[1].rombank)
                         break
                 }
@@ -208,14 +217,13 @@ class MMU {
                     case 1:
                         if (this.mbc[1].mode) {
                             this.mbc[1].rambank = (val & 3)
-                            this.ramoffs = this.mbc[1].rambank * 0x2000
+                            this.ramoffs = (this.mbc[1].rambank % this.mbc[1].maxRamBanks) * 0x2000
                         }
                         else {
                             this.mbc[1].rombank &= 0x1F
                             this.mbc[1].rombank |= ((val & 3) << 5)
-                            this.romoffs = this.mbc[1].rombank * 0x4000
+                            this.romoffs = (this.mbc[1].rombank % this.romBankCount) * 0x4000
                         }
-                    // console.log("\nromoffs: 0x",this.romoffs.toString('16'))
                 }
                 break
 

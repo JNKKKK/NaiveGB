@@ -1376,14 +1376,6 @@ class CPU {
         this.reg.ime = 0
     }
 
-    connect_mmu (mmu) {
-        this.MMU = mmu
-    }
-
-    connect_TIMER (TIMER) {
-        this.TIMER = TIMER
-    }
-
     skip_bios () {
         this.reg.pc = 0x100
         this.MMU.inbios = 0
